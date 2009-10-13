@@ -1,2 +1,37 @@
 A graph application for Drscheme
 
+Implementation notes
+
+First and foremost, this project is being made to address problems
+with what we already have, the swl-based grid search. In order to do
+this, I propose the following goals.
+
+* Persistent window
+
+  The window itself is not opened or closed. Instead, a function is
+  sent to the running application, and a player appears on the drawing
+  area. If PLT has any way to serialize lambdas over a network
+  connection, we could even have one window open with multiple people
+  uploading search functions to it. (Or we could send the source over
+  the network and evaluate it) We want an interface something like
+  this.
+
+  (define (my-grid-search grid current-node)
+    ...)
+
+  (send-to-grid my-grid-search "Name")
+
+  Or, if you use global variables all over the place and other state:
+  (send-to-grid "my-gridsearch.scm" "Other_name")
+
+  These functions should return a list of vertices to travel to. The
+  return value is checked for consistency and if everything is okay,
+  it is ready to run.
+
+* GUI interface
+  - There should be a slider to control the speed
+  - You should be able to place players with the mouse
+  - There should be pause/play buttons and a button to clear the screen
+  - Too much work: a rewind button
+
+* Under the hood
