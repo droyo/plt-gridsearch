@@ -4,16 +4,29 @@
 ;;;; adjacency matrix, where rows and columns represent vertexes, and
 ;;;; their intersections have the value #f if there is no edge between
 ;;;; them, or a positive number indicating a weight.
-
+(use srfi-1 srfi-43)
 
 (define (2d-vector width height fill)
   (make-vector height
 	       (make-vector width fill)))
 
-(define (disconnected-graph width height)
-  (2d-vector width height #f))
+(define (vector-map fn vec)
+  (let ((copy ))))
 
-(define (fully-connected-graph width height)
-  (2d-vector width height 0))
+(define (disconnected-graph n)
+  (2d-vector n n #f))
+
+(define (fully-connected-graph n)
+  (2d-vector n n 0))
+
+(define (neighbors grid v)
+  (let* ((adj '())
+	 (push! (lambda (x)
+		  (set! adj (cons x adj)))))
+    (vector-for-each (lambda (x)
+		       (when (vector-ref x v)
+			     (push! (vector-ref x v))))
+		     grid)))
+
 
 ;; We can create graphs with a depth-first-search algorithm

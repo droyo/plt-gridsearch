@@ -35,3 +35,36 @@ this, I propose the following goals.
   - Too much work: a rewind button
 
 * Under the hood
+  
+  Rather than represent the grid as a 2D matrix, I want to move to
+  representing the grid as a graph data structure, most likely an
+  adjacency matrix. So obstacles do not even appear on the graph, and
+  are only denoted by a lack of connectivity. Though this makes
+  drawing a bit more complex, it also make it more flexible, as any
+  graph has an infinite number of graphical representations.
+
+  Using an adjacency matrix also allows us to implement weighted
+  graphs in a clean way, using #f to represent absence of a connection
+  and a scalar value to represent a weight representing the cost to
+  travel along an edge.
+
+  We will make it easy to swap graph generation functions in and out,
+  so students can try making different kinds of graphs.
+
+  As much as possible I'd like to stick to the R5RS scheme standard,
+  and avoid using PLT specific functions outside of the actual
+  graphical program. We want students to be able to develop however
+  they like. Sending R5RS source code over a tcp socket is trivial in
+  all scheme implementations, and if the code is portable there should
+  be no problem.
+
+  We want to keep the grid data structure immutable. That will allow
+  us to run multiple search functions at the same time and implement
+  races and competitions very easily. Each search function is
+  responsible for keeping a list of notable vertices, though we may
+  provide some functions that make it easier.
+
+  Another thing that I would like to provide are queues and stacks
+  that display their contents in another window, updated real time so
+  students can see what is going on.
+
