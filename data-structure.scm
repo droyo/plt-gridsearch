@@ -18,7 +18,7 @@
   (list->vector
    (map (lambda (v)
 	  (list->vector (list-tabulate n (lambda (x)
-					   (and (not (= x v) connected?))))))
+					   (and (not (= x v)) connected?)))))
 	(list-tabulate n values))))
 
 (define graph-size
@@ -92,6 +92,29 @@
 (define +spring+ .06)
 (define +damping+ .86)
 (define +threshold+ .4)
+(define +standard-mass+ 1)
+
+(define-syntax inc!
+  (syntax-rules ()
+    ((inc! var n)
+     (begin (set! var (+ var n)) var))
+    ((inc! var)
+     (inc! var 1))))
+
+;; multiply or scale points
+(define (v* . pts)
+  (fold (lambda (p1 p2)
+	  (cond ((and (list? p1) (list? p2))
+		 (list (* (car p1) (car p2))
+		       (* (cadr p1) (cadr p2))))
+		((list? p1)
+		 (list (* (car p1) p2)
+		       (* (cadr p1) p2)))
+		((list? p2)
+		 (list (* (car p2) p1)
+		       (* (cadr p2) p1)))
+		(else (* p1 p2))))
+	1 pts))
 
 (define (v+ . pts)
   (fold (lambda (p1 p2)
@@ -99,34 +122,73 @@
 		(+ (cadr p1) (cadr p2))))
 	(list 0 0) pts))
 
-(define (move vel pos)
-  (map v+ vel pos))
+(define (v- . pts)
+  (fold (lambda (p1 p2)
+	  (list (- (car p1) (car p2))
+		(- (cadr p1) (cadr p2))))
+	(list 0 0) pts))
 
-(define (layout graph draw-node draw-connection width height)
-  (do* ((vel (make-list (graph-size graph) (list 0 0)))
-	(pos (position-nodes (vertices graph)) (move vel pos))
-	(forces (make-list (graph-size graph (list 0 0))))
-	(energy 0))
-       ((< energy +threshold+)
-	;;; Drawing step
-	(for-each (lambda (v)
-		    (for-each (lambda (n)
-				(draw-connection (list-ref pos v)
-						 (list-ref pos n)))
-			      (neighbors graph v))
-		    (draw-node (list-ref pos v) pt))
-		  (vertices graph)))
-       ;;; Calculate forces here
-       )
-  )
+;;; This function is very ugly. However, in the interest of getting
+;;; things done, I will stop obsessing over it and move on to other
+;;; things for now.
 
-(define (coulomb-repulsion graph v1 v2)
-  )
+;; produce a list of the form ((v0 (x0 y0)) (v1 (x1 y1)) ...) for easy
+;; drawing, using a force-directed layout algorithm taken off of
+;; wikipedia
+(define (layout graph w h)
+  (do ((t 0 (+ t 1))
+       (energy 0)
+       (vtx (vertices graph))
+       (vel (make-vector (graph-size graph) '(0 0)))
+       (pos (make-vector (graph-size graph) '(0 0))))
+      ((and (> t 0) (< energy +threshold+))
+	(map list vtx (vector->list pos)))
+       (for-each (lambda (node)
+		   (let ((net-force '(0 0)))
+		     
+		     (set! net-force
+			   (apply v+ net-force
+				  (map (lambda (other)
+					 (repulsion (vector-ref pos node)
+						    (vector-ref pos other)))
+				       (delete node vtx))))
+		     (set! net-force
+			   (apply v+ net-force
+				  (map (lambda (other)
+					 (attraction (vector-ref pos node)
+						     (vector-ref pos other)))
+				       (neighbors graph node))))
 
-(define (hooke-attraction graph v1 v2)
-  )
+		     (vector-set! vel node
+				  (v* (v+ (vector-ref vel node)
+					  (v* t net-force))
+				      +damping+))
+		   
+		     (vector-set! pos node
+				  (v+ (vector-ref pos node)
+				      (v* t (vector-ref vel node))))
+		   
+		     (inc! energy (apply + (v* +standard-mass+
+					       (vector-ref vel node)
+					       (vector-ref vel node))))
+		     (printf "~A~%" energy)))
+		 vtx)))
 
-(define (position-nodes nodes width height)
+;;; coulomb repulsion
+(define (repulsion v1 v2)
+  (let* ((diff (v- v1 v2))
+	 (dist (+ .01 (sqrt (apply + (v* diff diff))))))
+    (v* diff
+	(/ 1 (* 4 pi))
+	(/ 1 (expt dist 3)))))
+
+;;; hooke attraction
+(define (attraction v1 v2)
+  (let* ((diff (v- v2 v1))
+	 (dist (+ .01 (sqrt (apply + (v* diff diff))))))
+    (v* -1 +spring+ dist diff (/ 1 dist))))
+
+(define (init-pt nodes width height)
   (let loop ((pos '(#t #t)))
     (if (unique? pos)
 	pos
