@@ -1,3 +1,5 @@
+#lang scheme
+
 ;;;; A Graph data structure, along with functions to generate
 ;;;; fully-connected graphs. The graphs used in this application will
 ;;;; be pretty dense, so for now we will be using a simple WxH
@@ -6,15 +8,21 @@
 ;;;; them, or a positive number indicating a weight.
 (require srfi/1 srfi/43)
 
+;;; Note about the graph data structure: be sure to use only the
+;;; defined access functions to manipulate the graph. Do not use the
+;;; inherent vector-based structure of the graph as this may change in
+;;; the future to support larger graphs with less memory.
+
 ;; A graph with n vertices
-(define (graph n fill)
+(define (graph n connected?)
   (list->vector
    (map (lambda (v)
 	  (list->vector (list-tabulate n (lambda (x)
-					   (if (= x v) #f fill)))))
+					   (and (not (= x v) connected?))))))
 	(list-tabulate n values))))
 
-(define graph-size vector-length)
+(define graph-size
+  vector-length)
 
 (define (vertices graph)
   (vector->list (vector-map (lambda (i w) i) graph)))
@@ -71,3 +79,63 @@
 		(cons now path)))
 	  (else
 	   (dfs now (cdr adj))))))
+
+;;;; Layout algorithms There are many, many ways to layout a
+;;;; graph. For our purposes, and for now, we will use a simple
+;;;; force-directed layout. See the wikipedia page on force-based
+;;;; algorithms for details
+
+;;; layout takes a graph, a function to draw a node, and a function to
+;;; draw a connection between two nodes, in addition to screen
+;;; dimensions. This is only called when the screen is opened or
+;;; resized.
+(define +spring+ .06)
+(define +damping+ .86)
+(define +threshold+ .4)
+
+(define (v+ . pts)
+  (fold (lambda (p1 p2)
+	  (list (+ (car p1) (car p2))
+		(+ (cadr p1) (cadr p2))))
+	(list 0 0) pts))
+
+(define (move vel pos)
+  (map v+ vel pos))
+
+(define (layout graph draw-node draw-connection width height)
+  (do* ((vel (make-list (graph-size graph) (list 0 0)))
+	(pos (position-nodes (vertices graph)) (move vel pos))
+	(forces (make-list (graph-size graph (list 0 0))))
+	(energy 0))
+       ((< energy +threshold+)
+	;;; Drawing step
+	(for-each (lambda (v)
+		    (for-each (lambda (n)
+				(draw-connection (list-ref pos v)
+						 (list-ref pos n)))
+			      (neighbors graph v))
+		    (draw-node (list-ref pos v) pt))
+		  (vertices graph)))
+       ;;; Calculate forces here
+       )
+  )
+
+(define (coulomb-repulsion graph v1 v2)
+  )
+
+(define (hooke-attraction graph v1 v2)
+  )
+
+(define (position-nodes nodes width height)
+  (let loop ((pos '(#t #t)))
+    (if (unique? pos)
+	pos
+	(loop (map (lambda (_) (list (random width)
+				     (random height)))
+		   nodes)))))
+
+;; Check that the list has no duplicates
+(define (unique? lst)
+  (cond ((null? lst) #t)
+	((member (car lst) (cdr lst)) #f)
+	(else (unique? (cdr lst)))))
