@@ -1,5 +1,6 @@
 #lang scheme/gui
 
+(require "graph.scm")
 ; The GUI for the Grid program
 
 ; Creates the frame for the GUI, labels it
@@ -26,8 +27,7 @@
   (new canvas% [parent frame]
        [min-width 1000]
        [min-height 500]
-       [paint-callback
-        (lambda (canvas dc) (draw-grid dc))]))
+       [paint-callback draw-grid]))
 
 ; Get the canvas's drawing context
 (define dc (send canvas get-dc))
@@ -45,60 +45,10 @@
 
 ; Define the procedure that draws the grid
 (define (draw-grid dc)
-  (send dc set-pen no-pen)
-  (send dc set-brush black-brush)
-  (send dc draw-rectangle 0 0 1000 650)
-  (send dc set-brush gray-brush)
-  (send dc draw-rectangle 5 5 990 553)
-  (send dc set-brush white-brush)
-  (send dc draw-rectangle 10 10 30 30)
-  (send dc draw-rectangle 55 10 30 30)
-  (send dc draw-rectangle 100 10 30 30)
-  (send dc draw-rectangle 145 10 40 40)
-  (send dc draw-rectangle 190 10 40 40)
-  (send dc draw-rectangle 235 10 40 40)
-  (send dc draw-rectangle 280 10 40 40)
-  (send dc draw-rectangle 325 10 40 40)
-  (send dc draw-rectangle 370 10 40 40)
-  (send dc draw-rectangle 415 10 40 40)
-  (send dc draw-rectangle 460 10 40 40)
-  (send dc draw-rectangle 505 10 40 40)
-  (send dc draw-rectangle 550 10 40 40)
-  (send dc draw-rectangle 595 10 40 40)
-  (send dc draw-rectangle 640 10 40 40)
-  (send dc draw-rectangle 685 10 40 40)
-  (send dc draw-rectangle 730 10 40 40)
-  (send dc draw-rectangle 775 10 40 40)
-  (send dc draw-rectangle 820 10 40 40)
-  (send dc draw-rectangle 865 10 40 40)
-  (send dc draw-rectangle 10 55 40 40)
-  (send dc draw-rectangle 55 55 40 40)
-  (send dc draw-rectangle 100 55 40 40)
-  (send dc draw-rectangle 145 55 40 40)
-  (send dc draw-rectangle 190 55 40 40)
-  (send dc draw-rectangle 235 55 40 40)
-  (send dc draw-rectangle 280 55 40 40)
-  (send dc draw-rectangle 325 55 40 40)
-  (send dc draw-rectangle 370 55 40 40)
-  (send dc draw-rectangle 415 55 40 40)
-  (send dc draw-rectangle 460 55 40 40)
-  (send dc draw-rectangle 505 55 40 40)
-  (send dc draw-rectangle 550 55 40 40)
-  (send dc draw-rectangle 595 55 40 40)
-  (send dc draw-rectangle 640 55 40 40)
-  (send dc draw-rectangle 685 55 40 40)
-  (send dc draw-rectangle 730 55 40 40)
-  (send dc draw-rectangle 775 55 40 40)
-  (send dc draw-rectangle 820 55 40 40)
-  (send dc draw-rectangle 865 55 40 40)
-  (send dc draw-rectangle 10 100 40 40)
-  (send dc draw-rectangle 10 145 40 40)
-  (send dc draw-rectangle 10 190 40 40)
-  (send dc draw-rectangle 10 235 40 40)
-  (send dc draw-rectangle 10 280 40 40)
-  (send dc draw-rectangle 10 325 40 40)
-  (send dc draw-rectangle 10 370 40 40)
-  (send dc draw-rectangle 10 415 40 40))
+  (let* ((G (square-grid 8))
+	 (L (force-layout G)))
+    ;; draw stuff here
+    ))
 
 ;Make a panel to hold the message
 (define vertpanel (new horizontal-panel% [parent frame]
