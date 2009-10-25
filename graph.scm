@@ -6,6 +6,31 @@
 ;;;; between them
 (require srfi/1 srfi/43)
 
+;;; utility functions
+(define (sum ls)
+  (apply + ls))
+
+(define (unique? lst)
+  (= (length lst)
+     (length (delete-duplicates lst))))
+
+(define-syntax inc!
+  (syntax-rules ()
+    ((inc! var x)
+     (begin (set! var (+ var x))
+	    var))
+    ((inc! var)
+     (inc! var 1))))
+
+;; This shuffle takes an undefined amount of instructions.
+(define (shuffle lst)
+  (let f ((order '()))
+    (if (= (length order) (length lst))
+	(map (lambda (idx) (list-ref lst idx))
+	     order)
+	(f (lset-union = (list (random (length lst)))
+		       order)))))
+
 ;;; Graph creation
 ;; A graph with n vertices
 (define (graph n connected?)
@@ -111,7 +136,9 @@
 ;;; iteration.
 (define (rand-points n)
   (let ((p (list-tabulate n (lambda _ (list (random) (random))))))
-    (if (unique? p) p (rand-points n))))
+    (if (unique? p) 
+        (list->vector p)
+        (rand-points n))))
 
 ;;; Vector operations. They work any any size vector, represented as
 ;;;; lists (mathematical vectors, not the scheme vector datatypes)
@@ -169,54 +196,38 @@
 ;;; The Fruchterman-Reingold algorithm. Adapted from the pseudocode on
 ;;; the wikipedia page.
 (define (force-layout G threshold max-iterations k damping)
-  (do ((nrg 0)
-       (t 0 (+ t 1))
-       (vert (vertices G))
-       (vel (make-vector (graph-size G) '(0 0)))
-       (pos (rand-points (graph-size G)))
-       (energy (lambda ()
-		 (inc! nrg
-		       (apply + (map (lambda (v)
-				       (v* v v))
-				     (vector->list vel)))))))
+  (let* ((total-energy 0)
+         ;; might want to replace this with objects
+         (velocity (make-vector (graph-size G) '(0 0)))
+         (vel (lambda (v) (vector-ref velocity v)))
+         (vel-set! (lambda (v x) (vector-set! velocity v x)))
+         (position (rand-points (graph-size G)))
+         (pos (lambda (v) (vector-ref position v)))
+         (pos-set! (lambda (v x) (vector-set! position v x)))
+         (energy (lambda ()
+                   (inc! total-energy
+                         (sum (map (lambda (v)
+                                     (mag (v* v v)))
+                                   (vector->list velocity)))))))
+    (do ((t 0 (+ t 1)))
       ((or (>= t max-iterations) (< (energy) threshold))
-       (vector->list pos))
-
-    (vector-for-each
-     (lambda (vec p v)
-       (let ((force 0)
-	     (others (delete p (vector->list pos)))
-	     (springs (neighbors G vec)))
-	 (for-each (lambda (other-node)
-		     (inc! force (node-force vec other-node)))
-		   others)
-	 (for-each (lambda (s)
-		     (inc! force (edge-force vec s k)))
-		   springs)
-	 (vector-set! vel vec (v+ (vector-ref vel vec)
-				  (* t force damping)))
-	 (vector-set! pos vec (v+ (vector-ref pos vec)
-				  (v* t (vector-ref vel vec))))))
-     pos vel)))
-
-;;; utility functions
-(define (unique? lst)
-  (= (length lst)
-     (length (delete-duplicates lst))))
-
-(define-syntax inc!
-  (syntax-rules ()
-    ((inc! var x)
-     (begin (set! var (+ var x))
-	    var))
-    ((inc! var)
-     (inc! var 1))))
-
-;; This shuffle takes an undefined amount of instructions.
-(define (shuffle lst)
-  (let f ((order '()))
-    (if (= (length order) (length lst))
-	(map (lambda (idx) (list-ref lst idx))
-	     order)
-	(f (lset-union = (list (random (length lst)))
-		       order)))))
+       (vector->list position))
+      
+      (vector-for-each
+       (lambda (vec p v)
+         (let* ((others (delete p (vector->list pos)))
+                (springs (neighbors G vec))
+                (force (v+ (apply v+ 
+                                  (map (lambda (o)
+                                         (node-force (pos vec)
+                                                     (pos o)))))
+                           (apply v+
+                                  (map (lambda (s)
+                                         (edge-force (pos vec)
+                                                     (pos s)
+                                                     k)))))))
+           (vel-set! vec (v+ (vel vec)
+                             (* t force damping)))
+           (pos-set! pos vec (v+ (pos vec)
+                                 (v* t (vel vec))))))
+       pos vel))))
