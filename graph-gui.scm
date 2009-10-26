@@ -22,12 +22,28 @@
 (new menu% [label "Options"]	 
      [parent menu-bar])
 
+
+(define grid (square-grid 8))
+(define layout (force-layout grid .0003 10000 .4 .99))
+; Define the procedure that draws the grid
+(define (draw-grid dc)
+  (let ((points (map (lambda (p)
+                       (list (* (car p) 1000)
+                             (* (cadr p) 500)))
+                     layout))
+        (draw-node (lambda (pt)
+                     (send dc draw-rectangle
+                           (car pt)
+                           (cadr pt)
+                           40 40))))
+    (for-each draw-node points)))
+
 ;Define the Grid area
 (define canvas
   (new canvas% [parent frame]
        [min-width 1000]
        [min-height 500]
-       [paint-callback draw-grid]))
+       [paint-callback (lambda (canvas dc) (draw-grid dc))]))
 
 ; Get the canvas's drawing context
 (define dc (send canvas get-dc))
@@ -41,14 +57,6 @@
 (define gray-brush (make-object brush% "GRAY" 'solid))
 (define yellow-brush (make-object brush% "YELLOW" 'solid))
 (define red-pen (make-object pen% "RED" 2 'solid))
-
-
-; Define the procedure that draws the grid
-(define (draw-grid dc)
-  (let* ((G (square-grid 8))
-	 (L (force-layout G)))
-    ;; draw stuff here
-    ))
 
 ;Make a panel to hold the message
 (define vertpanel (new horizontal-panel% [parent frame]

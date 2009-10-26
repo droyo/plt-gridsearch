@@ -8,31 +8,26 @@ this, I propose the following goals.
 
 * Persistent window
 
-  The window itself is not opened or closed. Instead, a function is
-  sent to the running application, and a player appears on the drawing
-  area. If PLT has any way to serialize lambdas over a network
-  connection, we could even have one window open with multiple people
-  uploading search functions to it. (Or we could send the source over
-  the network and evaluate it) We want an interface something like
-  this.
+  We want to remove the annoyance of having to open and close windows
+  when running our search programs. Therefore, the window should be
+  persistent.
 
-  (define (my-grid-search grid current-node)
-    ...)
-
-  (send-to-grid my-grid-search "Name")
-
-  Or, if you use global variables all over the place and other state:
-  (send-to-grid "my-gridsearch.scm" "Other_name")
-
-  These functions should return a list of vertices to travel to. The
-  return value is checked for consistency and if everything is okay,
-  it is ready to run.
+  In the interest of keeping the application simple, rather than
+  having a complicated infrastructure to send closures to a running
+  graph application as previously proposed, we'll have the application
+  start from the repl, and keep the repl thread running. Then the user
+  can push their functions onto a stack of functions which the
+  application steps forward every n frames according to the speed
+  slider. This may require some continuation passing and the macros to
+  hide it.
 
 * GUI interface
   - There should be a slider to control the speed
   - You should be able to place players with the mouse
   - There should be pause/play buttons and a button to clear the screen
-  - Too much work: a rewind button
+  - If it's not too much work: a rewind button
+  - Some buttons to switch between graph layouts, perhaps a graph
+    history as well.
 
 * Under the hood
   
@@ -40,23 +35,24 @@ this, I propose the following goals.
   representing the grid as a graph data structure, most likely an
   adjacency matrix. So obstacles do not even appear on the graph, and
   are only denoted by a lack of connectivity. Though this makes
-  drawing a bit more complex, it also make it more flexible, as any
-  graph has an infinite number of graphical representations.
+  drawing more complex, it also make it more flexible, as any graph
+  has an infinite number of graphical representations, and our graphs
+  are no longer limited to square grids. We can import real-world map
+  data and have students search through it.
 
   Using an adjacency matrix also allows us to implement weighted
   graphs in a clean way, using #f to represent absence of a connection
   and a scalar value to represent a weight representing the cost to
   travel along an edge.
-
+  
   We will make it easy to swap graph generation functions in and out,
   so students can try making different kinds of graphs.
 
   As much as possible I'd like to stick to the R5RS scheme standard,
   and avoid using PLT specific functions outside of the actual
   graphical program. We want students to be able to develop however
-  they like. Sending R5RS source code over a tcp socket is trivial in
-  all scheme implementations, and if the code is portable there should
-  be no problem.
+  they like, using whatever implementation they like (the actual GUI
+  being an exception, obviously)
 
   We want to keep the grid data structure immutable. That will allow
   us to run multiple search functions at the same time and implement
