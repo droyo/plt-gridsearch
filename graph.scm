@@ -110,4 +110,4 @@
 
   (provide graph graph-size square-grid random-graph
 	   vertices connect! disconnect! search
-	   adjacent?))
+	   neighbors adjacent?))

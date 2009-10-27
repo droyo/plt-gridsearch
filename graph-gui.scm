@@ -4,57 +4,102 @@
 ;;;; from. This is not meant to be a standalone application.
 #lang scheme/gui
 
-;(require "graph.scm" "graph-layout.scm")
+(require srfi/1 "graph.scm" "graph-layout.scm" "vector-operations.scm")
 
-;; Our main window
-(define *top-frame*
-  (new frame%
-       [label "Graph Search"]
-       [min-width 320]
-       [min-height 200]))
+(define *node-size* 30)
 
-(define *main-panel*
-  (new vertical-panel%
-       [parent *top-frame*]
-       [alignment '(center top)]))
+(define (draw-node dc name x y)
+  (let ((stroke (make-object pen% "BLACK" 2 'solid)))
+    (send dc set-pen stroke)
+    (send dc draw-ellipse
+	  (- x (/ *node-size* 2))
+	  (- y (/ *node-size* 2))
+	  *node-size* *node-size*)
+    (send dc draw-text (number->string name)
+	  (- x 4)
+	  (- y 8))))
 
-;; The graph area
-(define *graph-canvas*
-  (new canvas%
-       [parent *main-panel*]
-       [style '(border)]
-       [stretchable-width #t]
-       [stretchable-height #t]))
+;; Only undirected edges for now.
+(define (draw-edge dc from to)
+  (let ((stroke (make-object pen% "BLACK" 2 'solid)))
+    (send dc draw-line (car from) (cadr from)
+	  (car to) (cadr to))))
 
-;; A horizontal bar of buttons and a slider
-(define *button-bar* (new horizontal-panel%
-			  [parent *main-panel*]
-			  [alignment '(center bottom)]
-			  [stretchable-height #f]))
-  
-;; Make some buttons in the panel
-;; Start/Stop
-(new button%
-     [parent *button-bar*]
-     [label "Start"])
-(new button%
-     [parent *button-bar*]
-     [label "Stop"])
-;; Slider bar
-(new slider%
-     [label "Speed"]
-     [parent *button-bar*]
-     [min-value 0]
-     [max-value 1000])
-;; Prev/Next buttons
-(new button%
-     [parent *button-bar*]
-     [label "<"])
-(new button%
-     [parent *button-bar*]
-     [label ">"])
+(define (draw-graph graph layout canvas dc)
+  (let* ((size (list (- (send canvas get-width)
+			*node-size*)
+		     (- (send canvas get-height)
+			*node-size*)))
+	 (scale (lambda (pt) (v+ (/ *node-size* 2)
+				 (v* size pt))))
+	 (points (map scale layout)))
 
-(define (run)
-  (send *top-frame* show #t);Shows the frame
-  ;; Wait a second to let the window get ready
-  (sleep/yield 1))
+    (for-each (lambda (node position)
+		;; Draw the edges
+		(for-each
+		 (lambda (adj)
+		   (draw-edge dc
+			      position
+			      (list-ref points adj)))
+		 (neighbors graph node)))
+	      (vertices graph) points)
+    		;; Draw each node
+    (for-each (lambda (node position)
+		(apply draw-node dc node position))
+	      (vertices graph) points)))
+
+(define (run-grid-gui)
+  (let* ((graph (random-graph 6 .4))
+	 (layout (random-layout (vertices graph)))
+	 (win (new frame%
+		   [label "Graph Search"]
+		   [min-width 320]
+		   [min-height 200]))
+	 (panel (new vertical-panel%
+		     [parent win]
+		     [alignment '(center top)]))
+	 (canvas (new canvas%
+		      [parent panel]
+		      [style '(border)]
+		      [stretchable-width #t]
+		      [stretchable-height #t]
+		      [paint-callback
+		       (lambda (canvas dc)
+			 (draw-graph graph
+				     layout
+				     canvas
+				     dc))]))
+	 (bar (new horizontal-panel%
+		   [parent panel]
+		   [alignment '(center bottom)]
+		   [stretchable-height #f]))
+	 (make-button (lambda (name fun)
+			(new button%
+			     [parent bar]
+			     [label name]
+			     [callback fun])))
+	 (tempo 1)
+	 (running #f))
+
+    (make-button "Start"
+		 (lambda (b e)
+		   (set! running (not running))
+		   (if running
+		       (send b set-label "Stop")
+		       (send b set-label "Start"))))
+    
+    (new slider%
+	 [label ""]
+	 [parent bar]
+	 [min-value 1]
+	 [max-value 1000]
+	 [callback (lambda (b e)
+		     (set! tempo
+			   (send b get-value))
+		     (printf "Tempo: ~A~%" tempo))])
+
+    (make-button "<" void)
+    (make-button ">" void)
+
+    (send win show #t)
+    (sleep/yield 1)))
