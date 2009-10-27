@@ -9,6 +9,7 @@
 	 "graph-layout.scm"
 	 "vector-operations.scm")
 
+;; Some utility macros
 (define-syntax flip!
   (syntax-rules ()
     ((_ var)
@@ -28,10 +29,13 @@
     ((_ var x)
      (begin (set! var (+ var x))
 	    var))
-    ((_ var)
-     (inc! var 1))))
+    ((_ var) (inc! var 1))))
 
+;; Currently we draw nodes as black outlined circles with their names
+;; in the middle.
 (define *node-size* 30)
+(define *padding* *node-size*)
+
 (define (draw-node dc name x y)
   (let ((stroke (make-object pen% "BLACK" 2 'solid)))
     (send dc set-pen stroke)
@@ -40,22 +44,25 @@
 	  (- y (/ *node-size* 2))
 	  *node-size* *node-size*)
     (send dc draw-text (number->string name)
+	  ;; Assume a 8x4 font size
 	  (- x 4)
 	  (- y 8))))
 
 ;; Only undirected edges for now.
 (define (draw-edge dc from to)
-  (let ((stroke (make-object pen% "GREY" 2 'solid)))
-    (send dc draw-line (car from) (cadr from)
+  (let ((stroke (make-object pen% "GRAY" 2 'solid)))
+    (send dc set-pen stroke)
+    (send dc draw-line
+	  (car from) (cadr from)
 	  (car to) (cadr to))))
 
-(define (draw-graph graph layout canvas dc)
-  (let* ((size (list (- (send canvas get-width)
-			*node-size*)
-		     (- (send canvas get-height)
-			*node-size*)))
-	 (scale (lambda (pt) (v+ (/ *node-size* 2)
-				 (v* size pt))))
+(define (draw-graph graph layout index canvas dc)
+  (let* ((width (send canvas get-width))
+	 (height (send canvas get-height))
+	 (size (list (- width (* 2 *padding*))
+		     (- height (* 2 *padding*))))
+	 (scale (lambda (pt)
+		  (v+ *padding* (v* size pt))))
 	 (points (map scale layout)))
 
     (for-each (lambda (node position)
@@ -70,7 +77,10 @@
     		;; Draw each node
     (for-each (lambda (node position)
 		(apply draw-node dc node position))
-	      (vertices graph) points)))
+	      (vertices graph) points)
+    ;; Draw the graph number in lower left-hand corner
+    (send dc draw-text (number->string index)
+	  4 (- height 20))))
 
 ;; A canvas that grows to fill its container
 (define (create-canvas par callback)
@@ -122,13 +132,16 @@
 
 (define *layout-function* random-layout)
 (define (new-graph)
-  (let ((g (random-graph 8 .3)))
+  (let ((g (random-graph 5 1)))
     (list g (*layout-function* (vertices g)))))
 
 ;; Where the action's at
 (define (run-grid-gui)
   (let* ((graphs (graph-list))
 	 (current-graph 0)
+	 (tempo 1)
+	 (running #f)
+	 
 	 ;; Keep our graphs in a list and add as we need them
 	 (to-graph
 	  (lambda (x)
@@ -140,7 +153,7 @@
 	      (list-ref graphs (inc! current-graph x)))
 	     (else
 	      (list-ref graphs current-graph)))))
-	 
+
 	 ;; Our gui elements
 	 (win (create-window))
 	 (panel (create-panel win))
@@ -150,7 +163,7 @@
 		    (send dc clear)
 		    (let ((g (to-graph 0)))
 		      (draw-graph (car g) (cadr g)
-				  c dc)))))
+				  current-graph c dc)))))
 	 (bar (create-bar panel))
 	 (make-button (button-maker bar))
 
@@ -172,9 +185,7 @@
 		">" (lambda (b e)
 		      (to-graph +1)
 		      (send prev show (> current-graph 0))
-		      (send canvas refresh))))
-	 (tempo 1)
-	 (running #f))
+		      (send canvas refresh)))))
 
     ;; [Start/Stop] [---|--------][<][>]
     (send win show #t)
