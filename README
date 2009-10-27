@@ -29,6 +29,18 @@ this, I propose the following goals.
   - Some buttons to switch between graph layouts, perhaps a graph
     history as well.
 
+  I have spent some time implementing the user interface, and it is
+  very close to how I'd like to keep it. All that's left to add is a
+  few usability features.
+
+  A few keybinds would be useful, such as spacebar to start/stop the
+  process, number keys to switch quickly between graphs. Perhaps a
+  keybind to save/load a list of graphs. We should also display the
+  number of the current graph in the list of graphs. Aesthetically
+  speaking, I'd like this number to be drawn at the bottom of the
+  canvas area, but then we'd have to avoid overlap with the graph. We
+  could deal with this by adding more padding.
+
 * Under the hood
   
   Rather than represent the grid as a 2D matrix, I want to move to
