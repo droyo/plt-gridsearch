@@ -13,39 +13,46 @@
        [min-width 320]
        [min-height 200]))
 
+(define *main-panel*
+  (new vertical-panel%
+       [parent *top-frame*]
+       [alignment '(center top)]))
+
 ;; The graph area
 (define *graph-canvas*
-  (new canvas% [parent *top-frame*]))
+  (new canvas%
+       [parent *main-panel*]
+       [style '(border)]
+       [stretchable-width #t]
+       [stretchable-height #t]))
 
 ;; A horizontal bar of buttons and a slider
 (define *button-bar* (new horizontal-panel%
-			  [parent *top-frame*]
-			  [alignment '(center bottom)]))
+			  [parent *main-panel*]
+			  [alignment '(center bottom)]
+			  [stretchable-height #f]))
   
 ;; Make some buttons in the panel
-(define (create-buttons)
-  ;; Play/Pause
-  (new button%
-       [parent *button-bar*]
-       [label "Play"])
-  (new button%
-       [parent *button-bar*]
-       [label "Pause"])
-  ;; Slider bar
-  (new slider%
-       [label "Speed"]
-       [parent *button-bar*]
-       [min-value 0]
-       [max-value 1000])
-  ;; Prev/Next buttons
-  (new button%
-       [parent *button-bar*]
-       [label "<"])
-  (new button%
-       [parent *button-bar*]
-       [label ">"]))
-
-(create-buttons)
+;; Start/Stop
+(new button%
+     [parent *button-bar*]
+     [label "Start"])
+(new button%
+     [parent *button-bar*]
+     [label "Stop"])
+;; Slider bar
+(new slider%
+     [label "Speed"]
+     [parent *button-bar*]
+     [min-value 0]
+     [max-value 1000])
+;; Prev/Next buttons
+(new button%
+     [parent *button-bar*]
+     [label "<"])
+(new button%
+     [parent *button-bar*]
+     [label ">"])
 
 (define (run)
   (send *top-frame* show #t);Shows the frame
