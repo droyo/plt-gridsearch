@@ -2,191 +2,221 @@
 ;;;; canvas area with buttons and a slider along the top and
 ;;;; bottom. Text output can be given in the repl we run the gui
 ;;;; from. This is not meant to be a standalone application.
-#lang scheme/gui
+(module graph-gui scheme/gui
+  (require srfi/1 srfi/39
+	   "graph.scm"
+	   "graph-layout.scm"
+	   "vector-operations.scm")
 
-(require srfi/1
-	 "graph.scm"
-	 "graph-layout.scm"
-	 "vector-operations.scm")
+  ;; Some utility macros
+  (define-syntax flip!
+    (syntax-rules ()
+      ((_ var)
+       (begin (set! var (not var))
+	      var))))
 
-;; Some utility macros
-(define-syntax flip!
-  (syntax-rules ()
-    ((_ var)
-     (begin (set! var (not var))
-	    var))))
+  ;; Add an item to the end of a list
+  (define-syntax add!
+    (syntax-rules ()
+      ((_ item list-var)
+       (set! list-var
+	     (append list-var (list item))))))
 
-;; Add an item to the end of a list, return its index
-(define-syntax add!
-  (syntax-rules ()
-    ((_ item list-var)
-     (begin (set! list-var
-		  (append list-var (list item)))
-	    (length list-var)))))
+  (define-syntax inc!
+    (syntax-rules ()
+      ((_ var x)
+       (begin (set! var (+ var x))
+	      var))
+      ((_ var) (inc! var 1))))
 
-(define-syntax inc!
-  (syntax-rules ()
-    ((_ var x)
-     (begin (set! var (+ var x))
-	    var))
-    ((_ var) (inc! var 1))))
+  ;; Currently we draw nodes as black outlined circles with their names
+  ;; in the middle.
+  (define node-size (make-parameter 30))
+  (define *padding* (node-size))
 
-;; Currently we draw nodes as black outlined circles with their names
-;; in the middle.
-(define *node-size* 30)
-(define *padding* *node-size*)
+  (define (draw-node dc name x y)
+    (let ((stroke (make-object pen% "BLACK" 2 'solid)))
+      (send dc set-pen stroke)
+      (send dc draw-ellipse
+	    (- x (/ (node-size) 2))
+	    (- y (/ (node-size) 2))
+	    (node-size)
+	    (node-size))
+      (send dc draw-text (number->string name)
+	    ;; Assume a 8x4 font size
+	    (- x 4)
+	    (- y 8))))
 
-(define (draw-node dc name x y)
-  (let ((stroke (make-object pen% "BLACK" 2 'solid)))
-    (send dc set-pen stroke)
-    (send dc draw-ellipse
-	  (- x (/ *node-size* 2))
-	  (- y (/ *node-size* 2))
-	  *node-size* *node-size*)
-    (send dc draw-text (number->string name)
-	  ;; Assume a 8x4 font size
-	  (- x 4)
-	  (- y 8))))
+  ;; Consider using paths to draw anti-aliased edges
+  (define (draw-edge dc from to)
+    (let ((stroke (make-object pen% "GRAY" 1 'solid)))
+      (send dc set-pen stroke)
+      (send dc draw-line
+	    (car from) (cadr from)
+	    (car to) (cadr to))))
 
-;; Only undirected edges for now.
-(define (draw-edge dc from to)
-  (let ((stroke (make-object pen% "GRAY" 2 'solid)))
-    (send dc set-pen stroke)
-    (send dc draw-line
-	  (car from) (cadr from)
-	  (car to) (cadr to))))
+  ;; TODO: cleanup draw-graph
+  (define (draw-graph canvas dc graph layout index)
+    (let* ((width (send canvas get-width))
+	   (height (send canvas get-height))
+	   (size (list (- width (* 2 *padding*))
+		       (- height (* 2 *padding*))))
+	   (scale (lambda (pt)
+		    (v+ *padding* (v* size pt))))
+	   (points (map scale layout)))
 
-(define (draw-graph graph layout index canvas dc)
-  (let* ((width (send canvas get-width))
-	 (height (send canvas get-height))
-	 (size (list (- width (* 2 *padding*))
-		     (- height (* 2 *padding*))))
-	 (scale (lambda (pt)
-		  (v+ *padding* (v* size pt))))
-	 (points (map scale layout)))
+      ;; Not optimal: here we have edges being drawn twice
+      (for-each (lambda (node position)
+		  ;; Draw the edges
+		  (for-each
+		   (lambda (adj)
+		     (draw-edge dc
+				position
+				(list-ref points adj)))
+		   (neighbors graph node)))
+		(vertices graph) points)
+      ;; Draw each node
+      (for-each (lambda (node position)
+		  (apply draw-node dc node position))
+		(vertices graph) points)
+      ;; Draw the graph number in lower left-hand corner
+      (send dc draw-text (number->string index)
+	    4 (- height 20))))
 
-    (for-each (lambda (node position)
-		;; Draw the edges
-		(for-each
-		 (lambda (adj)
-		   (draw-edge dc
-			      position
-			      (list-ref points adj)))
-		 (neighbors graph node)))
-	      (vertices graph) points)
-    		;; Draw each node
-    (for-each (lambda (node position)
-		(apply draw-node dc node position))
-	      (vertices graph) points)
-    ;; Draw the graph number in lower left-hand corner
-    (send dc draw-text (number->string index)
-	  4 (- height 20))))
+  (define layout (make-parameter random-layout))
+  (define new-graph (make-parameter (lambda ()
+				      (square-grid 3))))
 
-;; A canvas that grows to fill its container
-(define (create-canvas par callback)
-  (new canvas%
-       [parent par]
-       [style '(border)]
-       [stretchable-width #t]
-       [stretchable-height #t]
-       [paint-callback callback]))
+  (define (display-graph)
+    (define index 0)
+    (define speed 1)
+    (define running? #f)
 
-;; A closure that makes buttons for a container
-(define (button-maker par)
-  (lambda (name fun)
-    (new button%
-	 [parent par]
-	 [label name]
-	 [callback fun])))
+    ;; using a struct rather than a list here might 
+    ;; be easier to read
+    (define (make-graph)
+      (let ((g ((new-graph))))
+	(list g ((layout)
+		 (vertices g)
+		 (lambda (v) (neighbors g v))))))
+    (define graphs
+      (list (make-graph)))
 
-;; A horizontal bar container
-(define (create-bar par)
-  (new horizontal-panel%
-       [parent par]
-       [alignment '(center bottom)]
-       [stretchable-height #f]))
+    
+    ;; Keep our graphs in a list and add as we need them
+    (define (to-graph x)
+      (let ((new (+ index x)))
+	(cond
+	 ((>= new (length graphs))
+	  (add! (make-graph) graphs)
+	  (list-ref graphs (inc! index)))
+	 ((>= new 0)
+	  (list-ref graphs (inc! index x)))
+	 (else
+	  (list-ref graphs index)))))
 
-(define (create-window)
-  (new frame%
-       [label "Graph Search"]
-       [min-width 320]
-       [min-height 200]))
+    (define (current-graph)
+      (to-graph 0))
+  
+    (define (draw canvas dc)
+      (let ((graph (car (current-graph)))
+	    (layout (cadr (current-graph))))
+	(draw-graph canvas dc graph layout index)))
 
-(define (create-panel par)
-  (new vertical-panel%
-       [parent par]
-       [alignment '(center top)]))
+    ;; Our gui elements
+    (define win
+      (new frame%
+	   [label "Graph Search"]
+	   [min-width 320]
+	   [min-height 200]))
 
-(define (create-slider par fun)
-  (new slider%
-       [label ""]
-       [parent par]
-       [min-value 1]
-       [max-value 1000]
-       [callback fun]))
+    (define panel
+      (new vertical-panel%
+	   [parent win]
+	   [alignment '(center top)]))
 
-;; We'll manage a list of graphs that the user can cycle through using
-;; the <> buttons
-(define (graph-list)
-  (list (new-graph)))
+    (define canvas
+      (new canvas%
+	   [parent panel]
+	   [style '(border)]
+	   [stretchable-width #t]
+	   [stretchable-height #t]
+	   [paint-callback draw]))
 
-(define *layout-function* random-layout)
-(define (new-graph)
-  (let ((g (random-graph 5 1)))
-    (list g (*layout-function* (vertices g)))))
+    (define bar
+      (new horizontal-panel%
+	   [parent panel]
+	   [alignment '(center bottom)]
+	   [stretchable-height #f]))
 
-;; Where the action's at
-(define (run-grid-gui)
-  (let* ((graphs (graph-list))
-	 (current-graph 0)
-	 (tempo 1)
-	 (running #f)
-	 
-	 ;; Keep our graphs in a list and add as we need them
-	 (to-graph
-	  (lambda (x)
-	    (cond
-	     ((>= (+ current-graph x) (length graphs))
-	      (add! (new-graph) graphs)
-	      (list-ref graphs (inc! current-graph)))
-	     ((> (length graphs) (+ current-graph x) -1)
-	      (list-ref graphs (inc! current-graph x)))
-	     (else
-	      (list-ref graphs current-graph)))))
+    (define (make-button name call)
+      (new button%
+	   [parent bar]
+	   [label name]
+	   [callback call]))
 
-	 ;; Our gui elements
-	 (win (create-window))
-	 (panel (create-panel win))
-	 (canvas (create-canvas
-		  panel
-		  (lambda (c dc)
-		    (send dc clear)
-		    (let ((g (to-graph 0)))
-		      (draw-graph (car g) (cadr g)
-				  current-graph c dc)))))
-	 (bar (create-bar panel))
-	 (make-button (button-maker bar))
+    ;; toggle start/stop
+    (define (toggle-start button event)
+      (if (flip! running?)
+	  (send button set-label "Stop")
+	  (send button set-label "Start")))
 
-	 (start (make-button
-		 "Start" (lambda (b e)
-			   (if (flip! running)
-			       (send b set-label "Stop")
-			       (send b set-label "Start")))))
-	 (slider (create-slider
-		  bar (lambda (b e)
-			(set! tempo (send b get-value)))))
+    (define start (make-button "Start" toggle-start))
 
-	 (prev (make-button
-		"<" (lambda (b e)
-		      (to-graph -1)
-		      (send b show (> current-graph 0))
-		      (send canvas refresh))))
-	 (next (make-button
-		">" (lambda (b e)
-		      (to-graph +1)
-		      (send prev show (> current-graph 0))
-		      (send canvas refresh)))))
+    (define (update-speed button event)
+      (set! speed (send button get-value)))
+  
+    (define slider
+      (new slider%
+	   [label ""]
+	   [parent bar]
+	   [min-value 1]
+	   [max-value 1000]
+	   [callback update-speed]))
 
-    ;; [Start/Stop] [---|--------][<][>]
+    ;; If we're at graph 0 prev button is hidden
+    (define (prev-graph button event)
+      (to-graph -1)
+      (send button show (> index 0))
+      (send canvas refresh))
+  
+    (define prev (make-button "<" prev-graph))
+
+    (define (next-graph button event)
+      (to-graph +1)
+      (send prev show (> index 0))
+      (send canvas refresh))
+
+    (define next (make-button ">" next-graph))
+
+    ;; A closure that the user may use to control the window through
+    ;; the repl. Does little to no error checking.
+    (define (parse-cmd cmd . args)
+      (let ((G (car (current-graph))))
+	(case cmd
+	  ((switch)
+	   (and (number? (car args))
+		(>= (car args) 0)
+		(< (car args) (length graphs))
+		(set! index (car args))
+		(send canvas refresh)))
+	  ((new-graph)
+	   (parse-cmd 'switch (- (length graphs) 1))
+	   (to-graph +1)
+           (printf "Created graph ~A~%" index))
+	  ((connect)
+	   (connect! G (car args) (cadr args))
+           (send canvas refresh))
+	  ((disconnect)
+	   (disconnect! G (car args) (cadr args))
+           (send canvas refresh))
+          
+	  (else
+	   (printf "Unknown command ~A~%" cmd)))))
+
+    (send prev show #f)
     (send win show #t)
-    (sleep/yield 1)))
+    (sleep/yield 1)
+    parse-cmd)
+
+  (provide display-graph layout new-graph))

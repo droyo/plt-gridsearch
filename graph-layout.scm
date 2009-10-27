@@ -29,7 +29,7 @@
 ;; manipulate graphs. This way, they will work for any graph
 ;; representation given the proper accessor functions.
 
-  (define (random-layout nodes)
+  (define (random-layout nodes get-neighbors)
     (rand-points (length nodes)))
 
   (provide random-layout))
