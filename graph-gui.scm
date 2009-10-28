@@ -1,23 +1,27 @@
-;;;; Notes on the GUI: I want it to be very spartan, ideally a huge
-;;;; canvas area with buttons and a slider along the top and
-;;;; bottom. Text output can be given in the repl we run the gui
-;;;; from. This is not meant to be a standalone application.
+;;;; This is not meant to be a standalone application. You are supposed
+;;;; to play with this from the repl.
 (module graph-gui scheme/gui
   (require srfi/1 srfi/39
 	   "graph.scm"
 	   "graph-layout.scm"
 	   "helper-functions.scm")
 
-  ;;; The following parameters are provided for the user to customize the 
-  ;;; program. I use srfi-39 parameters so the user can update options as
-  ;;; the program is running.
+  ;;; The following parameters are provided for the user to customize
+  ;;; the program. You can set them by calling them like functions
+  ;;; with their new value as an argument. Call them with no arguments
+  ;;; to get their current value.
+  ;;; (padding) -> 30
+  ;;; (padding 23)
+  ;;; (padding) -> 23
 
   ;; Margin between graph and edge of canvas (graph number is drawn here)
   (define padding (make-parameter 15))
   (define node-size (make-parameter 
                      30 (lambda (x) ; update padding
 			  (padding (/ x 2)) x)))
-  
+
+  ;; We want player and goal to be different sizes, so they don't block
+  ;; each other if they are on the same vertex
   (define player-size (make-parameter 20))
   (define goal-size (make-parameter 18))
   
@@ -43,7 +47,7 @@
   ;; object as described in graph.scm
   (define new-graph
     (make-parameter (lambda ()
-                      (square-grid 3))))
+		      (square-grid 3))))
 
   ;; Currently we draw nodes as black outlined circles with their names
   ;; in the middle.
@@ -55,19 +59,20 @@
 	    (node-size)
 	    (node-size))
       (send dc draw-text (number->string name)
-	    ;; Assume a 8x4 font size
+	    ;; Assume a 8x4 font size. This doesn't work when name is
+	    ;; more than one character long.
 	    (- x 4)
 	    (- y 8)))
 
   ;; Consider taking list of player trails and highlighting
-  ;; edges with player colors
+  ;; edges with player colors.
   (define (draw-edge dc from to)
     (send dc set-pen (edge-pen))
     (send dc draw-line 
           (first from) (second from)
           (first to) (second to)))
 
-  ;; For now player is a rectangle
+  ;; For now players/goals are rounded rectangles
   (define (draw-player dc layout player)
     (let* ((pos (list-ref layout (first (player-trail player)))))
       (send dc set-pen (player-pen))
@@ -107,17 +112,18 @@
                                          (list (pos vertex) (pos adj)))
                                        (neighbors graph vertex)))
                                (vertices graph)))))
-      (delete-duplicates lines
-                         ;; The lines ((x1 y1) (x2 y2)) and ((x2 y2) (x1 y1))
-                         ;; are considered equal.
-                         (lambda (s1 s2)
-                           (or (equal? s1 s2)
-                               (equal? s1 (swap-endpoints s2)))))))
+      (delete-duplicates
+       lines
+       ;; The lines ((x1 y1) (x2 y2)) and ((x2 y2) (x1 y1))
+       ;; are considered equal.
+       (lambda (s1 s2)
+	 (or (equal? s1 s2)
+	     (equal? s1 (swap-endpoints s2)))))))
 
   ;; Since we don't want players to pollute the graph, we need to
   ;; provide storage for visited nodes for each player. Player's 
-  ;; current position will be at top of trail
-  (define-struct player 
+  ;; current position will be at top of player-trail
+  (define-struct player
     (name logic [trail #:mutable]))
   
   (define-struct graph 
@@ -126,7 +132,7 @@
      ;; The list of points for each node, mutable so we can
      ;; reset the layout
      [layout #:mutable]
-     ;; We associate a list of players with each graph
+     ;; We associate a list of players and goals with each graph
      [players #:mutable #:auto]
      [goals #:mutable #:auto])
     #:auto-value '())
@@ -140,7 +146,7 @@
 
   ;; Choose a random start. Note: we might want to make sure players
   ;; don't start at the same place
-  (define (choose-start graph)
+  (define (random-start graph)
     (let ((vt (vertices graph)))
       (list-ref vt (random (length vt)))))
   
@@ -175,7 +181,8 @@
     
     ;;; Add/remove/manipulate players
     (define (add-player name fun 
-                        [pos (choose-start (graph-structure (current-graph)))])
+                        [pos (random-start (graph-structure
+					    (current-graph)))])
       (let ((new-player (make-player name fun (list pos))))
         (set-graph-players! (current-graph)
                             (cons new-player 
@@ -281,13 +288,11 @@
       (sleep pause)
       (for-each step-player (graph-players (current-graph)))
       (main))
-    ;; We run main in a separate loop, suspended and resumed by the
-    ;; start button, so we can still play around in the repl
+    ;; We run main in a separate thread, suspended and resumed by the
+    ;; start button, so we can still play around in the repl.
     (define main-thread
-      (let ((t (thread (lambda ()
-                         (main)))))
-        (thread-suspend t)
-        t))
+      (let ((t (thread main)))
+        (thread-suspend t) t))
     
     ;; toggle start/stop
     (define (toggle-start button event)
@@ -302,7 +307,6 @@
   
     (define (update-pause button event)
       (set! pause (/ (send button get-value) 50)))
-
     ;; Our slider controls length of pause between steps: higher is
     ;; slower.
     (define slider
@@ -314,6 +318,7 @@
            [init-value 50]
 	   [callback update-pause]))
 
+    ;; Our page buttons
     (define (prev-graph button event)
       (move-prev-graph)
       ;; If we're at graph 0 prev button is hidden
@@ -321,7 +326,7 @@
       (when running?
         (toggle-start start/stop #t))
       (send canvas refresh))
-  
+    
     (define prev (make-button "<" prev-graph))
 
     (define (next-graph button event)
@@ -340,7 +345,7 @@
     (define (parse-cmd cmd . args)
       (let ((G (graph-structure (current-graph))))
 	(case cmd
-	  ((switch)
+	  ((jump)
 	   (and (number? (car args))
 		(>= (car args) 0)
 		(< (car args) (length graph-list))
@@ -381,7 +386,7 @@
     (send (send canvas get-dc) set-smoothing 'aligned)
     (send prev show #f)
     (send win show #t)
-    (sleep/yield 1)
+    (sleep/yield 1);I don't know what this is for
     parse-cmd)
 
   (provide display-graph layout-function new-graph
