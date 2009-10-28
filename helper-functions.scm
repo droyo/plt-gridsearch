@@ -10,12 +10,13 @@
 
   ;; Return first element of lst sorted by f.
   ;; (most > '(1 2 5 3 4)) -> 5
+  ;; (most < '(1 2 5 3 4)) -> 1
   (define (most f lst)
     (fold (lambda (x y)
             (if (f x y) x y))
           (car lst) lst))
 
-  ;; #t If lst has no duplicates. Could be more efficient.
+  ;; #t If lst has no duplicate numbers
   (define (unique? lst)
     (= (length lst)
        (length (delete-duplicates lst))))
@@ -34,6 +35,7 @@
     (* x x))
   
   ;;; Some utility macros
+
   ;; flip a #t/#f variable like a switch, return new value
   (define-syntax flip!
     (syntax-rules ()
@@ -42,6 +44,9 @@
 	      var))))
 
   ;; Add an item to the end of a list
+  ;; (define a '(1 2))
+  ;; (add! 3 a) -> (1 2 3)
+  ;; a -> (1 2 3)
   (define-syntax add!
     (syntax-rules ()
       ((_ item list-var)
@@ -50,6 +55,11 @@
 	      list-var))))
 
   ;; Stack operations (combine pop! and add! to get a queue)
+  ;; a -> (1 2 3)
+  ;; (push! 0 a) -> (0 1 2 3)
+  ;; a -> (0 1 2 3)
+  ;; (pop! a) -> 0
+  ;; a -> (1 2 3)
   (define-syntax push!
     (syntax-rules ()
       ((_ item list-var)
@@ -69,8 +79,12 @@
 	     '())))))
 
   ;; Increment a numerical variable by x
-  ;; (let ((x 0)) (inc! x))   -> 1
-  ;; (let ((x 3)) (inc! x 2)) -> 5
+  ;; (define x 6)
+  ;; (inc! x)  -> 7
+  ;; (inc! x 2) -> 9
+  ;; x -> 9
+  ;; (inc! x -4) -> 5
+  ;; x -> 5
   (define-syntax inc!
     (syntax-rules ()
       ((_ var x)
@@ -113,9 +127,13 @@
   (define (unit-vector v)
     (v* v (/ 1 (norm v))))
 
+  ;; Compute the distance without taking the square root
   (define (dist-squared v1 v2)
     (sum (map (compose square -) v2 v1)))
 
-  (provide v/ v* v+ v- norm unit-vector dist-squared
+  (define dist
+    (compose sqrt dist-squared))
+
+  (provide v/ v* v+ v- norm unit-vector dist-squared dist
 	   unique? most square sum shuffle flip! add!
 	   inc! push! pop!))

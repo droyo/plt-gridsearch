@@ -11,8 +11,10 @@
   (define (create-graph n connected?)
     (list->vector
      (map (lambda (v)
-	    (list->vector (list-tabulate n (lambda (x)
-					     (and (not (= x v)) connected?)))))
+	    (list->vector (list-tabulate
+			   n (lambda (x)
+			       (and (not (= x v))
+				    connected?)))))
 	  (list-tabulate n values))))
 
   ;; Randomly-connected graph
@@ -45,23 +47,22 @@
 	    (connect! g i (+ i 1)))))
 
 
-;;; Graph accessors
+  ;;; Graph accessors
   (define graph-size
     vector-length)
 
+  ;; Vertices are given integer names.
   (define (vertices graph)
-    (vector->list (vector-map (lambda (i w) i) graph)))
+    (list-tabulate (graph-size graph) values))
 
-  ;; All vertices directly reachable from v
+  ;; List of vertices adjacent to v in graph
   (define (neighbors graph v)
     (let ((connections (vector-map (lambda (idx val) (and val idx))
 				   (vector-ref graph v))))
       (filter values (vector->list connections))))
 
-  (define (adjacent? graph v1 v2)
-    (vector-ref (vector-ref graph v1) v2))
-
-  ;; Modification (note: user search programs do not modify the graph)
+  ;; Modification (note: user search functions do not modify the
+  ;; graph, though the user may do so through the repl)
   (define (modify! graph v1 v2 x)
     (cond ((not (< -1 v1 (graph-size graph)))
 	   (error "The vertex does not exist" v1))
@@ -79,4 +80,4 @@
     (modify! graph v1 v2 #f))
 
   (provide create-graph graph-size square-grid random-graph
-	   vertices connect! disconnect! neighbors adjacent?))
+	   vertices connect! disconnect! neighbors))
