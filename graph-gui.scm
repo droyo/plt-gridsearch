@@ -33,10 +33,11 @@
   ;; in the middle.
   (define node-size (make-parameter 30))
   (define *padding* (node-size))
-
+  (define edge-pen (make-parameter (send the-pen-list find-or-create-pen "BLACK" 1 'solid)))
+  (define node-pen (make-parameter (send the-pen-list find-or-create-pen "BLACK" 1 'solid)))
+  
   (define (draw-node dc name x y)
-    (let ((stroke (make-object pen% "BLACK" 2 'solid)))
-      (send dc set-pen stroke)
+      (send dc set-pen (node-pen))
       (send dc draw-ellipse
 	    (- x (/ (node-size) 2))
 	    (- y (/ (node-size) 2))
@@ -45,40 +46,48 @@
       (send dc draw-text (number->string name)
 	    ;; Assume a 8x4 font size
 	    (- x 4)
-	    (- y 8))))
+	    (- y 8)))
 
   ;; Consider using paths to draw anti-aliased edges
   (define (draw-edge dc from to)
-    (let ((stroke (make-object pen% "GRAY" 1 'solid)))
-      (send dc set-pen stroke)
-      (send dc draw-line
-	    (car from) (cadr from)
-	    (car to) (cadr to))))
+    (send dc set-pen (edge-pen))
+    (send dc draw-line 
+          (first from) (second from) 
+          (first to) (second to)))
 
-  ;; TODO: cleanup draw-graph
+  ;; A unique list of edges
+  (define (get-edges graph layout)
+    (let* ((pos (lambda (x) (list-ref layout x)))
+           (swap-endpoints reverse)
+           (lines (apply append 
+                         (map (lambda (vertex)
+                                (map (lambda (adj)
+                                       (list (pos vertex) (pos adj)))
+                                     (neighbors graph vertex)))
+                              (vertices graph)))))
+      (delete-duplicates lines
+                         (lambda (s1 s2)
+                           (or (equal? s1 s2)
+                               (equal? s1 (swap-endpoints s2)))))))
+
   (define (draw-graph canvas dc graph layout index)
     (let* ((width (send canvas get-width))
 	   (height (send canvas get-height))
 	   (size (list (- width (* 2 *padding*))
 		       (- height (* 2 *padding*))))
-	   (scale (lambda (pt)
-		    (v+ *padding* (v* size pt))))
-	   (points (map scale layout)))
+	   (scale (lambda (pts)
+		    (map (lambda (pt)
+                           (v+ *padding* (v* size pt))) 
+                         pts)))
+	   (points (scale layout))
+           (edges (map scale (get-edges graph layout))))
 
-      ;; Not optimal: here we have edges being drawn twice
-      (for-each (lambda (node position)
-		  ;; Draw the edges
-		  (for-each
-		   (lambda (adj)
-		     (draw-edge dc
-				position
-				(list-ref points adj)))
-		   (neighbors graph node)))
-		(vertices graph) points)
-      ;; Draw each node
-      (for-each (lambda (node position)
-		  (apply draw-node dc node position))
-		(vertices graph) points)
+      (for-each (lambda (pos)
+                  (apply draw-edge dc pos))
+                edges)
+      (for-each (lambda (name pos)
+                  (apply draw-node dc name pos))
+                (vertices graph) points)
       ;; Draw the graph number in lower left-hand corner
       (send dc draw-text (number->string index)
 	    4 (- height 20))))
@@ -203,6 +212,7 @@
 	  ((new-graph)
 	   (parse-cmd 'switch (- (length graphs) 1))
 	   (to-graph +1)
+           (send prev show (> index 0))
            (printf "Created graph ~A~%" index))
 	  ((connect)
 	   (connect! G (car args) (cadr args))
@@ -219,4 +229,4 @@
     (sleep/yield 1)
     parse-cmd)
 
-  (provide display-graph layout new-graph))
+  (provide display-graph layout new-graph edge-pen node-pen node-size))
