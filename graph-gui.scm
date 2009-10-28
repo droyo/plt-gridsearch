@@ -6,28 +6,7 @@
   (require srfi/1 srfi/39
 	   "graph.scm"
 	   "graph-layout.scm"
-	   "vector-operations.scm")
-
-  ;; Some utility macros
-  (define-syntax flip!
-    (syntax-rules ()
-      ((_ var)
-       (begin (set! var (not var))
-	      var))))
-
-  ;; Add an item to the end of a list
-  (define-syntax add!
-    (syntax-rules ()
-      ((_ item list-var)
-       (set! list-var
-	     (append list-var (list item))))))
-
-  (define-syntax inc!
-    (syntax-rules ()
-      ((_ var x)
-       (begin (set! var (+ var x))
-	      var))
-      ((_ var) (inc! var 1))))
+	   "helper-functions.scm")
 
   ;;; The following parameters are provided for the user to customize the 
   ;;; program. I use srfi-39 parameters so the user can update options as
@@ -36,10 +15,8 @@
   ;; Margin between graph and edge of canvas (graph number is drawn here)
   (define padding (make-parameter 15))
   (define node-size (make-parameter 
-                     30
-                     (lambda (x) ; update padding
-                       (padding (/ x 2))
-                       x)))
+                     30 (lambda (x) ; update padding
+			  (padding (/ x 2)) x)))
   
   (define player-size (make-parameter 20))
   (define goal-size (make-parameter 18))
@@ -59,8 +36,9 @@
   ;; The layout function may be changed to any function that takes a list 
   ;; of vertices and a function to find adjacents and returns an equal-size 
   ;; list of points between (0, 0) and (1, 1)
-  (define layout 
-    (make-parameter random-layout))
+  (define layout-function
+    (make-parameter grid-layout))
+
   ;; The graph generation function takes no arguments and returns a graph 
   ;; object as described in graph.scm
   (define new-graph
@@ -155,7 +133,9 @@
   
   (define (create-graph-info)
     (let* ((g ((new-graph)))
-           (l ((layout) (vertices g) (lambda (v) (neighbors g v)))))
+           (l ((layout-function)
+	       (vertices g) (lambda (v)
+			      (neighbors g v)))))
       (make-graph g l)))
 
   ;; Choose a random start. Note: we might want to make sure players
@@ -171,29 +151,29 @@
   (define (display-graph)
     (define pause 1)
     (define running? #f)
-
-    (define (update-pause button event)
-      (set! pause (/ (send button get-value) 50)))
-
-    ;; Keep our graphs in a list and add as we need them
-    (define graphs (list (create-graph-info)))
+    (define graph-list (list (create-graph-info)))
     (define index 0)
-    ;; Move along graph list relatively
+
+    ;; We move along the graph list relatively with the function
+    ;; move-graph, which closes over the variables index and
+    ;; graph-list. It adds new graphs when moving beyond the length of
+    ;; our graph list.
     (define (move-graph x)
       (let ((new (+ index x)))
 	(cond
-	 ((>= new (length graphs))
-	  (add! (create-graph-info) graphs)
+	 ((>= new (length graph-list))
+	  (add! (create-graph-info) graph-list)
 	  (inc! index))
 	 ((>= new 0)
 	  (inc! index x))
          (else index))))
 
+    ;; Some shortcuts to make things more readable
     (define (move-next-graph) (move-graph +1))
     (define (move-prev-graph) (move-graph -1))
-    (define (current-graph)   (list-ref graphs index))
+    (define (current-graph)   (list-ref graph-list index))
     
-    ;; Note: we need to make sure players don't start on same space.
+    ;;; Add/remove/manipulate players
     (define (add-player name fun 
                         [pos (choose-start (graph-structure (current-graph)))])
       (let ((new-player (make-player name fun (list pos))))
@@ -209,7 +189,10 @@
                  (string=? (player-name p) name))
                (graph-players (current-graph))))
       (send canvas refresh))
-    
+
+    ;; Moves the player by one graph node. The manner in which the
+    ;; player moves about the graph is not set in stone yet, so this
+    ;; area is subject to change.
     (define (step-player p)
       (let* ((g (graph-structure (current-graph)))
              (search (player-logic p))
@@ -221,38 +204,19 @@
             (set-player-trail! p (cons next (player-trail p)))
             (printf "~A is not reachable from ~A~%" next pos)))
       (send canvas refresh))
-    
+
+    ;; Graphs may have any number of goals.
     (define (add-goal vertex)
       (set-graph-goals! (current-graph)
-                        (cons vertex (graph-goals (current-graph))))
+                        (lset-union = ;avoid duplicate goals
+				    (list vertex)
+				    (graph-goals (current-graph))))
       (send canvas refresh))
 
     (define (delete-goal vertex)
       (set-graph-goals! (current-graph)
-                        (remove vertex (graph-goals (current-graph))))
+			(remove vertex (graph-goals (current-graph))))
       (send canvas refresh))
-    
-    (define (draw canvas dc)
-      (let* ((graph (graph-structure (current-graph)))
-             (size (list (- (send canvas get-width)
-                            (* 2 (padding)))
-                         (- (send canvas get-height)
-                            (* 2 (padding)))))
-             (layout (map (lambda (pt)
-                            (v+ (v* size pt) (padding)))
-                          (graph-layout (current-graph)))))
-
-        (draw-graph dc graph layout)
-        
-        (for-each (lambda (p)
-                    (draw-player dc layout p))
-                  (graph-players (current-graph)))
-        (for-each (lambda (g)
-                    (draw-goal dc layout g))
-                  (graph-goals (current-graph)))
-        ;; Draw graph number in lower left-hand corner
-        (send dc draw-text (number->string index)
-              4 (- (send canvas get-height) 20))))
 
     ;; Our gui elements
     (define win
@@ -265,6 +229,31 @@
       (new vertical-panel%
 	   [parent win]
 	   [alignment '(center top)]))
+
+    ;; Currently the draw function redraws the entire graph, giving a
+    ;; considerable flickering effect. An improvement would be only
+    ;; redrawing the whole graph when the window is resized, instead
+    ;; redrawing only the nodes that were tread on by players.
+    (define (draw canvas dc)
+      (let* ((graph (graph-structure (current-graph)))
+             (size (list (- (send canvas get-width)
+                            (* 2 (padding)))
+                         (- (send canvas get-height)
+                            (* 2 (padding)))))
+             (layout (map (lambda (pt)
+                            (v+ (v* size pt) (padding)))
+                          (graph-layout (current-graph)))))
+
+        (draw-graph dc graph layout)
+        (for-each (lambda (p)
+                    (draw-player dc layout p))
+                  (graph-players (current-graph)))
+        (for-each (lambda (g)
+                    (draw-goal dc layout g))
+                  (graph-goals (current-graph)))
+        ;; Draw graph number in lower left-hand corner
+        (send dc draw-text (number->string index)
+              4 (- (send canvas get-height) 20))))
 
     (define canvas
       (new canvas%
@@ -286,12 +275,14 @@
 	   [parent bar]
 	   [label name]
 	   [callback call]))
+
     ;; Our main loop just steps the players through the graph
     (define (main)
       (sleep pause)
       (for-each step-player (graph-players (current-graph)))
       (main))
-    
+    ;; We run main in a separate loop, suspended and resumed by the
+    ;; start button, so we can still play around in the repl
     (define main-thread
       (let ((t (thread (lambda ()
                          (main)))))
@@ -309,6 +300,11 @@
     (define start/stop
       (make-button "Start" toggle-start))
   
+    (define (update-pause button event)
+      (set! pause (/ (send button get-value) 50)))
+
+    ;; Our slider controls length of pause between steps: higher is
+    ;; slower.
     (define slider
       (new slider%
 	   [label ""]
@@ -323,7 +319,7 @@
       ;; If we're at graph 0 prev button is hidden
       (send button show (> index 0))
       (when running?
-        (toggle-start start/stop #f))
+        (toggle-start start/stop #t))
       (send canvas refresh))
   
     (define prev (make-button "<" prev-graph))
@@ -347,20 +343,23 @@
 	  ((switch)
 	   (and (number? (car args))
 		(>= (car args) 0)
-		(< (car args) (length graphs))
+		(< (car args) (length graph-list))
 		(set! index (car args))
 		(send canvas refresh)))
+	  ;; Create a new graph and switch to it
 	  ((new-graph)
-	   (parse-cmd 'switch (- (length graphs) 1))
+	   (parse-cmd 'switch (- (length graph-list) 1))
 	   (move-next-graph)
            (send prev show (> index 0))
            (printf "Created graph ~A~%" index))
+	  ;; Modify the current graph
 	  ((connect)
 	   (apply connect! G args)
            (send canvas refresh))
 	  ((disconnect)
 	   (apply disconnect! G args)
            (send canvas refresh))
+	  ;; Add/remove elements in the graph
           ((add-player)
            (apply add-player args))
           ((add-goal)
@@ -369,11 +368,12 @@
            (apply delete-player args))
           ((delete-goal)
            (apply delete-goal args))
-          ((step)
-           (for-each step-player (graph-players (current-graph))))
+	  ((toggle-start)
+	   (toggle-start start/stop #t))
+	  ;; Quit the session
           ((quit)
            (kill-thread main-thread)
-           (printf "Thread terminated. Close the window.~%"))
+	   (send win close))
 	  (else
 	   (printf "Unknown command ~A~%" cmd)))))
     
@@ -384,4 +384,6 @@
     (sleep/yield 1)
     parse-cmd)
 
-  (provide display-graph layout new-graph edge-pen node-pen node-size))
+  (provide display-graph layout-function new-graph
+	   player-pen goal-pen edge-pen node-pen
+	   node-size player-size goal-size))

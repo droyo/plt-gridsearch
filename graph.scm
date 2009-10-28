@@ -5,15 +5,6 @@
 (module graph scheme
   (require srfi/1 srfi/43)
 
-  ;; This shuffle takes an undefined amount of instructions.
-  (define (shuffle lst)
-    (let f ((order '()))
-      (if (= (length order) (length lst))
-	  (map (lambda (idx) (list-ref lst idx))
-	       order)
-	  (f (lset-union = (list (random (length lst)))
-			 order)))))
-
   ;; Graph creation
   ;; A graph with n vertices
   (define (create-graph n connected?)
@@ -86,28 +77,5 @@
   (define (disconnect! graph v1 v2)
     (modify! graph v1 v2 #f))
 
-  ;; A reference depth-first-search algorithm
-  (define (search graph start end)
-    (define visited '())
-
-    (define (mark v)
-      (set! visited (cons v visited)))
-
-    (define (expand v)
-      (mark v)
-      (shuffle (lset-difference = (neighbors graph v) visited)))
-
-    (let dfs ((now start)
-	      (adj (expand start)))
-      (cond ((member end adj)
-	     (list now end))
-	    ((null? adj) #f)
-	    ((dfs (car adj) (expand (car adj)))
-	     => (lambda (path)
-		  (cons now path)))
-	    (else
-	     (dfs now (cdr adj))))))
-
   (provide create-graph graph-size square-grid random-graph
-	   vertices connect! disconnect! search
-	   neighbors adjacent?))
+	   vertices connect! disconnect! neighbors adjacent?))
