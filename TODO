@@ -1,0 +1,68 @@
+* Things that need to be done
+
+** Optimizing the drawing functions
+
+   If you generate a graph with any more than 20 nodes, you will
+   notice considerable, jarring flicker whenever the graph is
+   redrawn. This is unacceptable, and can be fixed by doing the
+   following optimizations.
+
+   - Storing edge positions: currently, every time the graph is
+     redrawn, we recompute the edges between vertices with an
+     algorithm that looks to have around an O(n^2) runtime. There is
+     no reason to do this more than once per graph. We can just store
+     the endpoints in the graph struct.
+
+   - Scalar multiplication: I doubt this is taking too much time, but
+     each time the graph is redrawn the base points are scaled to the
+     current window size. This is only neccesary when the window is
+     resized. We can store the scaled points somewhere and change them
+     when the window size changes.
+
+   - Don't redraw the whole graph: During the normal running of the
+     program, the only thing that needs to be re-drawn are the nodes
+     which were covered by a player piece. This may be the most
+     immediate course of action: redraw the node in step-player and
+     change draw to only redraw the graph when it is resized.
+
+   Note this app does a lot of sleeping and is not very
+   CPU-intensive. The only thing that is being called several times
+   per second is the drawing function. So if any optimizations need to
+   take place, they need to take place here. Anywhere else is a waste
+   of time.
+
+** Aesthetics
+
+   One visual effect that I think is important is tracing a player's
+   trail as he moves through the graph. Other effects are nice, too.
+
+** Weights
+
+   Our graph data structure can trivially represent weighted
+   edges. Should we choose to use them we should add an appropriate
+   visual cue.
+
+** Distance
+
+   In Gary's gridsearch, because each grid cell had coordinates,
+   computing the distance to the goal was as easy as pie. However,
+   because we are using abstract, mathematical graphs with an infinite
+   number of visual representations, this is no longer applicable.
+
+   I honestly don't have an answer to this problem. I could use
+   Djikstra's algorithm to give the distance between vertices, but
+   this would obviously give students the shortest path.
+
+   I hope the other merits of this system make up for this small
+   sacrifice.
+
+** Player-player interaction
+
+   The easiest way of letting players know about the location of other
+   players would be to pass another function that returns a list of
+   other player positions, perhaps with their names.
+
+** LAYOUT
+
+   The grid layout is acceptable for some graphs, but this application
+   is really missing a general grid layout algorithm.
