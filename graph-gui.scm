@@ -45,7 +45,7 @@
 
   ;; The graph generation function takes no arguments and returns a graph 
   ;; object as described in graph.scm
-  (define new-graph
+  (define new-graph-function
     (make-parameter (lambda ()
 		      (square-grid 3))))
 
@@ -138,7 +138,7 @@
     #:auto-value '())
   
   (define (create-graph-info)
-    (let* ((g ((new-graph)))
+    (let* ((g ((new-graph-function)))
            (l ((layout-function)
 	       (vertices g) (lambda (v)
 			      (neighbors g v)))))
@@ -204,16 +204,28 @@
       (let* ((g (graph-structure (current-graph)))
              (search (player-logic p))
              (pos (car (player-trail p)))
-             (adj (neighbors g pos))
+             (adj (lambda (v) (neighbors g v)))
              (visited? (lambda (v) (member v (player-trail p))))
-             (next (search adj visited?)))
-        (if (member next adj)
-            (set-player-trail! p (cons next (player-trail p)))
-            (printf "~A is not reachable from ~A~%" next pos)))
+	     (goal? (lambda (v) (member v (graph-goals (current-graph)))))
+             (next (search pos adj visited? goal?)))
+
+	(cond ((member next (adj pos))
+	       (set-player-trail! p (cons next (player-trail p))))
+	      ((eq? next 'finished)
+	       (printf "Found goal in ~A steps~%"
+		       (length (player-trail p)))
+	       (delete-player (player-name p)))
+	      ((eq? next 'no-path)
+	       (printf "Failed to find path to goal~%")
+	       (delete-player (player-name p)))
+	      (else
+	       (printf "No cheating! There is no edge from ~A to ~A~%"
+		       pos next))))
       (send canvas refresh))
 
     ;; Graphs may have any number of goals.
-    (define (add-goal vertex)
+    (define (add-goal [vertex (random-start (graph-structure
+					     (current-graph)))])
       (set-graph-goals! (current-graph)
                         (lset-union = ;avoid duplicate goals
 				    (list vertex)
@@ -240,7 +252,8 @@
     ;; Currently the draw function redraws the entire graph, giving a
     ;; considerable flickering effect. An improvement would be only
     ;; redrawing the whole graph when the window is resized, instead
-    ;; redrawing only the nodes that were tread on by players.
+    ;; redrawing only the nodes that were tread on by players. This
+    ;; flickering gets really bad as the graph gets larger.
     (define (draw canvas dc)
       (let* ((graph (graph-structure (current-graph)))
              (size (list (- (send canvas get-width)
@@ -320,21 +333,23 @@
 
     ;; Our page buttons
     (define (prev-graph button event)
+      (when running?
+        (toggle-start start/stop #t))
+
       (move-prev-graph)
       ;; If we're at graph 0 prev button is hidden
       (send button show (> index 0))
-      (when running?
-        (toggle-start start/stop #t))
       (send canvas refresh))
     
     (define prev (make-button "<" prev-graph))
 
     (define (next-graph button event)
+      (when running?
+        (toggle-start start/stop #f))
+
       (move-next-graph)
       ;; Make sure prev button is unhidden
       (send prev show (> index 0))
-      (when running?
-        (toggle-start start/stop #f))
       (send canvas refresh))
 
     (define next (make-button ">" next-graph))
@@ -389,6 +404,5 @@
     (sleep/yield 1);I don't know what this is for
     parse-cmd)
 
-  (provide display-graph layout-function new-graph
-	   player-pen goal-pen edge-pen node-pen
+  (provide display-graph layout-function new-graph-function
 	   node-size player-size goal-size))

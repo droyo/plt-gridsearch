@@ -1,7 +1,8 @@
 ;;;; Graph data structure, w/ functions to generate graphs. We use a
 ;;;; simple WxH adjacency matrix, where rows and columns represent
 ;;;; vertexes, and their intersections are true if there is an edge
-;;;; between them
+;;;; between them. Note that this would be trivial to extend to
+;;;; weighted edges by providing a number weight rather than #t
 (module graph scheme
   (require srfi/1 srfi/43)
 
