@@ -1,6 +1,6 @@
 ;;;; This is not meant to be a standalone application. You are supposed
 ;;;; to play with this from the repl.
-(module graph-gui scheme/gui
+(module graph-search scheme/gui
   (require srfi/1 srfi/39
 	   "graph.scm"
 	   "graph-layout.scm"

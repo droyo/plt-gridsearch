@@ -1,0 +1,37 @@
+GRAPHSEARCH(8)
+==============
+
+NAME
+----
+
+graph-search - an environment for graph visualization and searching in
+plt-scheme
+
+SYNOPSIS
+--------
+(require "graph-search.scm")
+
+DESCRIPTION
+-----------
+
+Some description goes here.
+
+EXAMPLES
+--------
+
+(define G (display-grid))
+
+(G 'add-player "Player Name" random-search 13)
+
+Where random-search is a function, and 13 is the desired starting
+point.
+
+BUGS
+----
+
+Lots of them.
+
+AUTHORS
+-------
+David Arroyo <david.a.arroyo@gmail.com>
+James O'Connor <joconno2@conncoll.edu>

@@ -1,7 +1,7 @@
 #lang scheme
 
 ;; Example usage of our graph program
-(require srfi/1 "graph.scm" "graph-layout.scm" "graph-gui.scm")
+(require srfi/1 "graph.scm" "graph-layout.scm" "graph-search.scm")
 
 ;; Choose our layout function. Current possible choices are:
 ;; grid-layout, random-layout
