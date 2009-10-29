@@ -16,7 +16,7 @@
 
   ;; Graph creation
   ;; A graph with n vertices
-  (define (graph n connected?)
+  (define (create-graph n connected?)
     (list->vector
      (map (lambda (v)
 	    (list->vector (list-tabulate n (lambda (x)
@@ -25,7 +25,7 @@
 
   ;; Randomly-connected graph
   (define (random-graph size prob)
-    (do ((g (graph size #f))
+    (do ((g (create-graph size #f))
 	 (v1 0 (+ v1 1)))
 	((>= v1 size) g)
       (for-each
@@ -36,7 +36,7 @@
 
   ;; Symmetrical graph, all vertices have max 4 neighbors.
   (define (square-grid n)
-    (do ((g (graph (* n n) #f))
+    (do ((g (create-graph (* n n) #f))
 	 (i 0 (+ i 1)))
 	((= i (* n n)) g)
       ;; Up
@@ -108,6 +108,6 @@
 	    (else
 	     (dfs now (cdr adj))))))
 
-  (provide graph graph-size square-grid random-graph
+  (provide create-graph graph-size square-grid random-graph
 	   vertices connect! disconnect! search
 	   neighbors adjacent?))
