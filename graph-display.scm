@@ -305,7 +305,8 @@
 
 	 (else
 	  (printf "No cheating! There is no edge from ~A to ~A~%"
-		  now next)))))
+		  now next)
+	  (delete-player (current-graph) (player-name p))))))
     
     ;; Our gui elements
     (define win
