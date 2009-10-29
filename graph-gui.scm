@@ -32,7 +32,7 @@
   ;; Currently we draw nodes as black outlined circles with their names
   ;; in the middle.
   (define node-size (make-parameter 30))
-  (define *padding* (node-size))
+  (define *padding* (/ (node-size) 2))
   (define edge-pen (make-parameter (send the-pen-list find-or-create-pen "BLACK" 1 'solid)))
   (define node-pen (make-parameter (send the-pen-list find-or-create-pen "BLACK" 1 'solid)))
   

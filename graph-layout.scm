@@ -1,10 +1,11 @@
 (module graph-layout scheme
-  (require srfi/1 srfi/43)
-  ;;;; Force-based graph layout using the Fruchterman-Reingold
-  ;;;; algorithm. We layout all the points on a unit plane that
-  ;;;; stretches between 0 and 1, so we can scale it to any window size
-  ;;;; by simply scaling the vectors
-    
+  (require srfi/1 srfi/43 "vector-operations.scm")
+
+  (define (most f lst)
+    (fold (lambda (x y)
+            (if (f x y) x y))
+          (car lst) lst))
+  
   (define (unique? lst)
     (= (length lst)
        (length (delete-duplicates lst))))
@@ -24,12 +25,22 @@
       (if (unique? p) 
           p
           (rand-points n))))
-  
-;; All of our layout functions use closures passed in as arguments to
-;; manipulate graphs. This way, they will work for any graph
-;; representation given the proper accessor functions.
 
+  ;; All of our layout functions use closures passed in as arguments to
+  ;; manipulate graphs. This way, they will work for any graph
+  ;; representation given the proper accessor function.
   (define (random-layout nodes get-neighbors)
     (rand-points (length nodes)))
+  
+  (define (grid-layout nodes get-neighbors)
+    (let* ((size (sqrt (length nodes)))
+           (scale (/ 1 size))
+           (column -1))
+      (map (lambda (node)
+             (v+ (/ scale 2)
+                 (v* (list (remainder (inc! column) size)
+                           (quotient column size))
+                     scale)))
+             nodes)))
 
-  (provide random-layout))
+  (provide random-layout grid-layout))
