@@ -30,7 +30,10 @@
   (define (square x)
     (* x x))
   
-  ;;; Some utility macros
+  ;;; Some utility macros -- macros are special scheme functions that
+  ;;; transform source code into source code, like the C preprocessor
+  ;;; on steroids. You can read about them in the scheme spec R5RS or
+  ;;; in the book at scheme.com
 
   ;; flip a #t/#f variable like a switch, return new value
   (define-syntax flip!

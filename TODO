@@ -1,31 +1,10 @@
 * Things that need to be done
 
-** Optimizing the drawing functions
-
-   If you generate a graph with any more than 20 nodes, you will
-   notice considerable, jarring flicker whenever the graph is
-   redrawn. This is unacceptable, and can be fixed by doing the
-   following optimizations.
-
-   - Scalar multiplication: I doubt this is taking too much time, but
-     each time the graph is redrawn the base points are scaled to the
-     current window size. This is only neccesary when the window is
-     resized. We can store the scaled points somewhere and change them
-     when the window size changes. I'm not convinced this is too big
-     of a problem. I've optimized some other things and the flickering
-     is under control now.
-
-   Note this app does a lot of sleeping and is not very
-   CPU-intensive. The only thing that is being called several times
-   per second is the drawing function. So if any optimizations need to
-   take place, they need to take place here. Anywhere else is a waste
-   of time.
-
 ** Aesthetics
 
-   Right now, goals are green, players are red, and nodes are black;
-   It would be desirable to assign every player a random new color, so
-   we can distinguish between them.
+   I'd like to clean up the drawing code and organize it so one can
+   choose from different drawing styles. We could have a drawing style
+   that mimics a grid, for example.
 
 ** Weights
 
@@ -40,15 +19,9 @@
    because we are using abstract, mathematical graphs with an infinite
    number of visual representations, this is no longer applicable.
 
-   I honestly don't have an answer to this problem. I could use
-   Djikstra's algorithm to give the distance between vertices, but
-   this would obviously give students the shortest path. The physical
-   distance between two nodes will depend on the graphical
-   representation of the graph.
-
-   I hope the other merits of this system make up for this small
-   sacrifice.
-
+   One solution would be to provide the user with a function that
+   returns the coordinates of a vertex.
+   
 ** Player-player interaction
 
    The easiest way of letting players know about the location of other
@@ -70,12 +43,15 @@
    large, undocumented, and inaccessible. We don't want to repeat the
    same mistake.
 
+   I will start working on a guide with pictures and code that can be
+   hosted on the github wiki page.
+
 *** Code quality issues
 
     There are some inconsistencies in the code, such as:
     - The arbitrary interchanging of "vertex" and "node"
-    - A little too much list trickery (look at get-edges)
-    - Sometimes arbitrary arguments: Some of the decisions to pass a
+
+    - Sometimes ambiguous arguments: Some of the decisions to pass a
       graph-info struct over the actual graph data structure are
       pretty arbitrary, and make the interactions a little tangled.
 
