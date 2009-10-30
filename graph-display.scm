@@ -284,7 +284,7 @@
 	  (toggle-start start/stop #t)
 	  (delete-player (current-graph) (player-name p))
 	  (send canvas refresh))
-
+	 
 	 ((and (player-plan p)
 	       (member (first (player-plan p)) (cons now (adj now))))
 	  (move-to (first (player-plan p)))
@@ -294,11 +294,11 @@
 	  (printf "Received path ~A from ~A~%" next
 		  (player-name p))
 	  (set-player-plan! p next))
-
+	 ;; Make sure player's aren't cheating
 	 ((member next (adj now))
 	  (move-to next))
-
-	 ((eq? next 'no-path)
+	 ;; Return #f or 'no-path to give up
+	 ((or (not next) (eq? next 'no-path))
 	  (printf "~A Failed to find path to goal~%"
 		  (player-name p))
 	  (delete-player (current-graph) (player-name p)))

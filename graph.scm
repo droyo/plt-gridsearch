@@ -4,7 +4,7 @@
 ;;;; between them. Note that this would be trivial to extend to
 ;;;; weighted edges by providing a number weight rather than #t
 (module graph scheme
-  (require srfi/1 srfi/43)
+  (require srfi/1 srfi/43 "helper-functions.scm")
 
   ;; Graph creation
   ;; A graph with n vertices
@@ -30,7 +30,7 @@
 
   ;; Symmetrical graph, all vertices have max 4 neighbors.
   (define (square-grid n)
-    (do ((g (create-graph (* n n) #f))
+    (do ((g (create-graph (square n) #f))
 	 (i 0 (+ i 1)))
 	((= i (* n n)) g)
       ;; Up
@@ -46,8 +46,37 @@
       (when (positive? (remainder (+ i 1) n))
 	    (connect! g i (+ i 1)))))
 
+  ;; Maze generation using depth-first-search
+  (define (maze graph)
+    (let* ((old '())
+	   (start (random (graph-size graph)))
+	   (mark (lambda (v) (push! v old)))
+	   (visited? (lambda (v) (member v old)))
+	   (adjacent (lambda (v)
+		       (shuffle (neighbors graph v)))))
 
-  ;;; Graph accessors
+      (let dfs ((start start)
+		(adj (adjacent start)))
+	(mark start)
+	(cond
+	 ((null? (remove visited? adj))
+	  (printf "Dead end at ~A~%" start))
+
+	 ((any visited? adj)
+	  (for-each (lambda (v)
+		      (disconnect! graph start v))
+		    (filter visited? adj))
+	  (dfs start (remove visited? adj)))
+
+	 (else
+	  (let ((new (remove visited? adj)))
+	    (dfs (car new) (adjacent (car new)))
+	    (dfs start (cdr new))))))
+
+      graph))
+
+  ;;; Graph accessors. Use these rather than vector accessors, in case
+  ;;; we want to change our data-structure in the future.
   (define graph-size
     vector-length)
 
@@ -80,4 +109,4 @@
     (modify! graph v1 v2 #f))
 
   (provide create-graph graph-size square-grid random-graph
-	   vertices connect! disconnect! neighbors))
+	   vertices connect! disconnect! neighbors maze))
