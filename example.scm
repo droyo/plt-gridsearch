@@ -12,7 +12,7 @@
 ;; generation functions.
 (new-graph-function
  (lambda ()
-   (kruskal-maze (square-grid 8) .5)))
+   (kruskal-maze (square-grid 8) .6)))
 
 ;; Choose how big we want various elements to be drawn on the
 ;; display. Defaults are in graph-gui.scm
@@ -50,14 +50,12 @@
 (define (random-search start adjacent visited? goal?)
   (let* ((adj (adjacent start))
 	 (new-adj (remove visited? adj)))
-    (cond ((goal? start)
-	   'finished)
-	  ((any goal? (adjacent start))
+    (cond ((any goal? (adjacent start))
 	   (find goal? (adjacent start)))
 	  ((not (null? new-adj))
-	   (list-ref new-adj (random (length new-adj))))
+	   (random-choose new-adj))
 	  ((not (null? adj))
-	   (list-ref adj (random (length adj))))
+	   (random-choose adj))
 	  (else
 	   'no-path))))
 
@@ -66,7 +64,7 @@
 ;; of the list it returns, if they form a path. When it reaches the 
 ;; end of the list, or the goal, the player will be deleted.
 
-;; A reference DFS search.
+;; A reference DFS search. We use recursion as our stack here.
 (define (depth-first-search start adjacent visited? goal?)
   ;; Note: visited? only returns #t if we have physically been to 
   ;; a vertex. Because this dfs does not actually *move* the player,
@@ -87,9 +85,22 @@
                 (cons (first adj) path)))
           (else (dfs (cdr adj))))))
 
-;; Add a player to the graph. The arguments are: A name(string), a
-;; search function as described above, and an optional starting point
-;; (if not supplied a random one is chosen)
+;; The most straightforward way to code BFS is using a queue.  The
+;; file helper-functions.scm provides the pop! and add! macros, which,
+;; together with 'first' (or car) will provide you with queue
+;; operations. Here is an example.
+(printf "Queue demonstration~%")
+(let loop ((q '(a b c 1 2 3)))
+  (unless (eq? (first q) 3)
+    ;; Off the front, onto the back
+    (add! (first q) q)
+    (pop! q)
+    (printf "q = ~A~%" q)
+    (loop q)))
+
+;;  Add a player to the graph. The arguments are: A
+;; name(string), a search function as described above, and an optional
+;; starting point (if not supplied a random one is chosen)
 (graph-session 'add-player "Joseph" depth-first-search)
 (graph-session 'add-player "Harry" random-search)
 
