@@ -27,16 +27,19 @@
   
   (define edge-pen 
     (make-parameter (send the-pen-list find-or-create-pen 
-                          "BLACK" 1 'solid)))
+                          "BLUE" 2 'solid)))
   (define node-pen 
     (make-parameter (send the-pen-list find-or-create-pen 
                           "BLACK" 1 'solid)))
-  (define player-pen
-    (make-parameter (send the-pen-list find-or-create-pen
-                          "RED" 1 'solid)))
   (define goal-pen
     (make-parameter (send the-pen-list find-or-create-pen
                           "GREEN" 1 'solid)))
+
+  ;; color for node backgrounds
+  (define background-brush
+    (make-parameter (send the-brush-list find-or-create-brush
+			  "SeaShell" 'solid)))
+
   ;; The layout function may be changed to any function that takes a list 
   ;; of vertices and a function to find adjacents and returns an equal-size 
   ;; list of points between (0, 0) and (1, 1)
@@ -51,14 +54,14 @@
 
   ;; Currently we draw nodes as black outlined circles with their names
   ;; in the middle.
-  (define (draw-node dc name x y)
-      (send dc set-pen (node-pen))
+  (define (draw-node dc name x y [pen (node-pen)])
+      (send dc set-pen pen)
       (send dc draw-ellipse
 	    (- x (/ (node-size) 2))
 	    (- y (/ (node-size) 2))
 	    (node-size)
 	    (node-size))
-      (send dc draw-text (number->string name)
+      (send dc draw-text name
 	    ;; Assume a 8x4 font size. This doesn't work when name is
 	    ;; more than one character long.
 	    (- x 4)
@@ -78,14 +81,18 @@
 	   (cur (first trail))
 	   (breadcrumbs
 	    (lambda (b a)
-	      (and a (draw-edge dc a b (player-pen)))
+	      (and a (draw-edge dc a b (player-pen player)))
 	      b)))
       (fold breadcrumbs #f trail)
-      (send dc set-pen (player-pen))
+      (send dc set-pen (player-pen player))
+      (send dc set-brush (send the-brush-list find-or-create-brush
+			       (send (player-pen player) get-color)
+			       'solid))
       (send dc draw-rounded-rectangle 
             (- (first cur) (/ (player-size) 2))
             (- (second cur)(/ (player-size) 2))
-            (player-size) (player-size))))
+            (player-size) (player-size))
+      (send dc set-brush (background-brush))))
 
   (define (draw-goal dc layout goal)
     (let* ((pos (list-ref layout goal)))
@@ -99,10 +106,24 @@
     (for-each (lambda (pos)
                 (apply draw-edge dc pos))
               edge-points)
-    (for-each (lambda (name pos)
-                (apply draw-node dc name pos))
+    (for-each (lambda (vertex pos)
+                (apply draw-node dc
+		       (number->string vertex) pos))
               vertices layout))
-  
+
+  (define (random-pen)
+    (send the-pen-list find-or-create-pen
+	  (random-choose '("Red"
+			   "RoyalBlue"
+			   "SteelBlue"
+			   "Dark Olive Green"
+			   "DarkSeaGreen"
+			   "DarkKhaki"
+			   "Peru"
+			   "Sienna"
+			   "Chocolate"
+			   "Orchid"))
+	  2 'solid))
   ;; A unique list of edges
   (define (get-edges graph layout)
     (let* ((pos (lambda (x) (list-ref layout x))))
@@ -122,7 +143,7 @@
   ;; provide storage for visited nodes for each player. Player's 
   ;; current position will be at top of player-trail
   (define-struct player
-    (name logic [trail #:mutable] [plan #:mutable #:auto])
+    (name logic [trail #:mutable] [pen] [plan #:mutable #:auto])
     #:auto-value #f)
   
   (define-struct graph 
@@ -150,14 +171,13 @@
   ;;; Add/remove/manipulate players
   (define (add-player graph-info name fun [init #f])
     (let* ((start (or init (random-start (graph-structure graph-info))))
-           (new-player (make-player name fun (list start))))
+           (new-player (make-player name fun (list start) (random-pen))))
       (set-graph-players! graph-info (cons new-player 
                                            (graph-players graph-info)))))
   
-  (define (delete-player graph-info name)
-    (set-graph-players! graph-info (remove (lambda (p)
-                                             (string=? (player-name p) name))
-                                           (graph-players graph-info))))
+  (define (delete-player graph-info p)
+    (set-graph-players! graph-info
+			(delete p (graph-players graph-info))))
   
   ;; Graphs may have any number of goals.
   (define (add-goal graph-info [init #f])
@@ -239,8 +259,9 @@
 
       (define (move-to next)
 	(set-player-trail! p (cons next (player-trail p)))
-	(apply draw-node (send canvas get-dc)
-	       (second (player-trail p))
+	(apply draw-node
+	       (send canvas get-dc)
+	       (number->string (second (player-trail p)))
 	       (scale-pt (list-ref (graph-layout (current-graph))
 				   (second (player-trail p)))))
 	(draw-player (send canvas get-dc)
@@ -264,7 +285,7 @@
 		  (player-name p)
 		  (length (player-trail p)))
 	  (toggle-start start/stop #t)
-	  (delete-player (current-graph) (player-name p))
+	  (delete-player (current-graph) p)
 	  (send canvas refresh))
 
 	 ((null? (player-plan p))
@@ -328,13 +349,17 @@
              (layout (scale (graph-layout (current-graph))))
              (edges (map (compose scale cdr)
                          (graph-edges (current-graph)))))
-
+	(send dc set-brush (background-brush))
         (draw-graph dc vert layout edges)
         (for-each (lambda (p)
                     (draw-player dc layout p))
                   (graph-players (current-graph)))
         (for-each (lambda (g)
-                    (draw-goal dc layout g))
+		    (let ((pt (list-ref layout g)))
+		      (draw-node dc
+				 (string-append "G" (number->string g))
+				 (first pt) (second pt)
+				 (goal-pen))))
                   (graph-goals (current-graph)))
         ;; Draw graph number in lower left-hand corner
         (send dc draw-text (number->string index)
@@ -445,7 +470,13 @@
           ((add-goal)
            (apply add-goal (current-graph) args))
           ((delete-player)
-           (apply delete-player (current-graph) args))
+	   (map (lambda (name)
+		  (let ((player (find (lambda (p)
+					(string=? (player-name p)
+						  name))
+				      (graph-players (current-graph)))))
+		    (when player
+			  (apply delete-player (current-graph) player))))))
           ((delete-goal)
            (apply delete-goal (current-graph) args))
 	  ((toggle-start)
@@ -466,4 +497,5 @@
     parse-cmd)
 
   (provide display-graph layout-function new-graph-function
-	   node-size player-size goal-size))
+	   player-pen node-pen goal-pen edge-pen
+	   node-size player-size goal-size background-brush))

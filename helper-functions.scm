@@ -24,6 +24,9 @@
 	  (vector-set! v r (vector-ref v (- n 1)))
 	  (vector-set! v (- n 1) t)))))
 
+  (define (random-choose lst)
+    (list-ref lst (random (length lst))))
+  
   (define (square x)
     (* x x))
   
@@ -129,4 +132,4 @@
 
   (provide v/ v* v+ v- norm unit-vector dist-squared dist
 	   unique? square sum shuffle flip! add!
-	   inc! push! pop!))
+	   inc! push! pop! random-choose))

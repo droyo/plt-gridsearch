@@ -20,6 +20,7 @@
 (player-size 18)
 (goal-size 24)
 
+
 ;; Setup our graph and open our visualization window. This returns a
 ;; function that parses messages and changes the state of the
 ;; graph. This is how we put players and goals and new connections

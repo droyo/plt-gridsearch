@@ -136,6 +136,11 @@ A graph application for Drscheme
   keybind to save/load a list of graphs. We should also display the
   number of the current graph in the list of graphs.
 
+*** Graph/grid drawing
+
+    We may want the graph to look a little nicer. If we assume a
+    grid-layout, we can draw it like a maze, drawing edges as walls.
+
 ** Under the hood
   
   Rather than represent the grid as a 2D matrix, I want to move to
