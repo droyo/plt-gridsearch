@@ -105,29 +105,18 @@
   
   ;; A unique list of edges
   (define (get-edges graph layout)
-    (let* ((pos (lambda (x) (list-ref layout x)))
-           (swap-endpoints reverse)
-           ;; The following generates list of lines
-           ;; (((v1 v2) (x1 y1) (x2 y2))
-           ;;  ((v2 v1) (x2 y2) (x1 y1))
-           ;;  ((v3 v4) (x3 y3) (x4 y4)) ...)
-           ;; For all vertices and their neighbors. 
-           ;; It contains duplicates.
-           (lines (apply append!
-                         (map! (lambda (vertex)
-                                 (map! (lambda (adj)
-                                         (list (list vertex adj)
-                                               (pos vertex) 
-                                               (pos adj)))
-                                       (neighbors graph vertex)))
-                               (vertices graph)))))
-      (delete-duplicates
-       lines
-       ;; The lines ((x1 y1) (x2 y2)) and ((x2 y2) (x1 y1))
-       ;; are considered equal.
-       (lambda (s1 s2)
-	 (or (equal? (car s1) (car s2))
-	     (equal? (car s1) (swap-endpoints (car s2))))))))
+    (let* ((pos (lambda (x) (list-ref layout x))))
+      ;; The following generates list of lines
+      ;; (((v1 v2) (x1 y1) (x2 y2))
+      ;;  ((v2 v1) (x2 y2) (x1 y1))
+      ;;  ((v3 v4) (x3 y3) (x4 y4)) ...)
+      ;; For all vertices and their neighbors. 
+      ;; It does not contain duplicates.
+      (map (lambda (line)
+             (let ((from (pos (first line)))
+                   (to (pos (second line))))
+               (list line from to)))
+           (edges graph))))
 
   ;; Since we don't want players to pollute the graph, we need to
   ;; provide storage for visited nodes for each player. Player's 

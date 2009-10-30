@@ -12,7 +12,7 @@
 ;; generation functions.
 (new-graph-function
  (lambda ()
-   (maze (square-grid 8))))
+   (kruskal-maze (square-grid 8) .5)))
 
 ;; Choose how big we want various elements to be drawn on the
 ;; display. Defaults are in graph-gui.scm
