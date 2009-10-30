@@ -128,5 +128,5 @@
     (compose sqrt dist-squared))
 
   (provide v/ v* v+ v- norm unit-vector dist-squared dist
-	   unique? most square sum shuffle flip! add!
+	   unique? square sum shuffle flip! add!
 	   inc! push! pop!))
