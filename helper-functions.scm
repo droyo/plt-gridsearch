@@ -21,15 +21,16 @@
     (= (length lst)
        (length (delete-duplicates lst))))
   
-
-  ;; This shuffle takes an undefined amount of instructions.
+  ;; Knuth's Algorithm, from the Art of Computer Programming, Volume
+  ;; 2, Section 3.4.2. Randomizes a list in O(n) time.
   (define (shuffle lst)
-    (let f ((order '()))
-      (if (= (length order) (length lst))
-	  (map (lambda (idx) (list-ref lst idx))
-	       order)
-	  (f (lset-union = (list (random (length lst)))
-			 order)))))
+    (let ((v (list->vector lst)))
+      (do ((n (length lst) (- n 1)))
+	  ((zero? n) (vector->list v))
+	(let* ((r (random n))
+	       (t (vector-ref v r)))
+	  (vector-set! v r (vector-ref v (- n 1)))
+	  (vector-set! v (- n 1) t)))))
 
   (define (square x)
     (* x x))

@@ -1,7 +1,8 @@
 #lang scheme
 
 ;; Example usage of our graph program
-(require srfi/1 "graph.scm" "graph-layout.scm" "graph-search.scm")
+(require srfi/1 "graph.scm" "graph-layout.scm" 
+         "graph-display.scm" "helper-functions.scm")
 
 ;; Choose our layout function. Current possible choices are:
 ;; grid-layout, random-layout
@@ -59,10 +60,37 @@
 	  (else
 	   'no-path))))
 
+;; If our search function returns a list, it will not be called again.
+;; Instead the graph software will step the player over each element 
+;; of the list it returns, if they form a path. When it reaches the 
+;; end of the list, or the goal, the player will be deleted.
+
+;; A reference DFS search.
+(define (depth-first-search start adjacent visited? goal?)
+  ;; Note: visited? only returns #t if we have physically been to 
+  ;; a vertex. Because this dfs does not actually *move* the player,
+  ;; we need our own way of keeping track of old nodes.
+  (define old '())
+  (define (mark v) (push! v old))
+  (define (old? v) (member v old))
+
+  (define (expand v) 
+    (mark v)
+    (shuffle (remove old? (adjacent v))))
+  
+  (let dfs ((adj (expand start)))
+    (cond ((null? adj) #f)
+          ((find goal? adj) => list)
+          ((dfs (expand (first adj)))
+           => (lambda (path)
+                (cons (first adj) path)))
+          (else (dfs (cdr adj))))))
+
 ;; Add a player to the graph. The arguments are: A name(string), a
 ;; search function as described above, and an optional starting point
 ;; (if not supplied a random one is chosen)
-(graph-session 'add-player "Randy" random-search)
+(graph-session 'add-player "Joseph" depth-first-search)
+(graph-session 'add-player "Harry" random-search)
 
 ;; There is a button for this, but we may start/pause the animation from
 ;; within our program.
