@@ -50,30 +50,31 @@
   ;; has some flaw in it.
   (define (dfs-maze graph)
     (let* ((old '())
-	   (start (random (graph-size graph)))
-	   (mark (lambda (v) (push! v old)))
 	   (visited? (lambda (v) (member v old)))
-	   (adjacent (lambda (v)
-		       (shuffle (neighbors graph v)))))
+	   (expand (lambda (v)
+		     (push! v old)
+		     (shuffle (neighbors graph v))))
+	   (start (random (graph-size graph))))
 
       (let dfs ((start start)
-		(adj (adjacent start)))
-	(mark start)
-	(cond
-	 ((null? (remove visited? adj))
-	  (printf "Dead end at ~A~%" start))
+		(adj (expand start)))
+	(let ((new (remove visited? adj)))
+	  (cond
+	   ;; When we hit a dead end, do nothing and pass execution
+	   ;; back up the stack
+	   ((null? new))
+	   ;; The recursion has made a path to some adjacent nodes, so
+	   ;; we can remove this extra path to them. Adding a
+	   ;; probability here may make the graph more interesting.
+	   ((any visited? adj)
+	    (for-each (lambda (v)
+			(disconnect! graph start v))
+		      (filter visited? adj))
+	    (dfs start new))
 
-	 ((any visited? adj)
-	  (for-each (lambda (v)
-		      (disconnect! graph start v))
-		    (filter visited? adj))
-	  (dfs start (remove visited? adj)))
-
-	 (else
-	  (let ((new (remove visited? adj)))
-	    (dfs (car new) (adjacent (car new)))
+	   (else
+	    (dfs (car new) (expand (car new)))
 	    (dfs start (cdr new))))))
-
       graph))
 
   ;; Maze generation using Kruskal's algorithm. Change the shuffle 

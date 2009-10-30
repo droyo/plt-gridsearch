@@ -8,14 +8,6 @@
   (define (sum ls)
     (apply + ls))
 
-  ;; Return first element of lst sorted by f.
-  ;; (most > '(1 2 5 3 4)) -> 5
-  ;; (most < '(1 2 5 3 4)) -> 1
-  (define (most f lst)
-    (fold (lambda (x y)
-            (if (f x y) x y))
-          (car lst) lst))
-
   ;; #t If lst has no duplicate numbers
   (define (unique? lst)
     (= (length lst)

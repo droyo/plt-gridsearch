@@ -1,30 +1,128 @@
 A graph application for Drscheme
 
-Implementation notes
+* Implementation notes
 
-First and foremost, this project is being made to address problems
-with what we already have, the swl-based grid search. In order to do
-this, I propose the following goals.
+  This section is for those who want to fix something that has gone
+  horribly wrong with the graph program, or who have thought of
+  some super cool graph search/layout/generation algorithm that they
+  want to contribute. It is a brief walkthrough and overview of the
+  bits and pieces making up the graph program. It is an extremely
+  small program, and very simple, too, so do not be afraid to dive
+  right in, but if you have cold feet, this may help a bit. This may
+  fall out of sync with the source code, so the best reference is the
+  code itself.
 
-* Persistent window
+** graph.scm - The graph data structure and co.
+
+   This file contains code for the actual data structure we use to
+   represent our graph, which is an NxN adjacency matrix, where N is
+   the number of vertices in the graph. There are functions for
+   generating various types of graphs, such as square grid-like graphs
+   where nodes have at most 4 neighbors, random graphs, fully
+   connected or disconnected graphs, and the like. Also located here
+   are functions for accessing and manipulating the graph, such as
+   getting a list of vertices, making or destroying a connection
+   between two vertices, etc. It is pretty straightforward.
+
+   It is most natural for us to use the indices of the matrix to name
+   the vertices of the graph, so any graph G will have vertices 0
+   through N - 1. We use this fact in other parts of the program,
+   using the vertex name as an index rather than storing information
+   about them in a list.
+
+** graph-layout.scm - functions to position vertices on a 2D plane
+
+   First note that no drawing takes place in this file. The functions
+   within this file are not dependent on any graph or graphical code
+   whatsoever. The layout functions simply take a list of vertices and
+   a way to get their edges, and return a list of points on the unit
+   plane -- points whose X and Y values are between 0 and 1. This
+   allows us to easily deal with changing window sizes with a simple
+   multiplication. 
+
+** graph-display.scm - where the magic happens
+
+   This file is where we deal with user interaction. Consequently, it
+   is large and not as clean as the rest of the code. The most notable
+   and complicated part of this file is the display-graph function,
+   which is, embarrassingly, quite large. It may be refactored into
+   smaller separate parts, but as of now, it does the following:
+
+   - Setup a graph list: Using a single persistent window makes it
+     desirable to be able to page through multiple graphs. We create a
+     list with an initial graph, and create a closure over the
+     graph-list that moves along it by one, adding a new graph when it
+     steps out of bounds.
+
+   - Setup our gui elements: This code is specific to PLT scheme, and
+     documentation is available at http://docs.plt-scheme.org/ Note
+     the interaction between the start/stop and prev/next buttons,
+     that call each others' callback functions upon being
+     pressed. Also note that toggle-start suspends and resumes our
+     main thread, giving us the desired pause functionality.
+
+   - Create our function to step players: this function needs a little
+     cleaning up, but it is probably the most important function, as
+     it drives the whole program and makes things go. To read about
+     the interface it presents to the user, read example.scm which is
+     extensively commented. Note how we have taken the burden of
+     moving the robot off of the user. He merely needs to return a
+     vertex or a path, and step-player will do the rest.
+
+   - parse-cmd: what I find to be the coolest part of this
+     program. This function provides the user with a point of access
+     into the running graph process. As demonstrated in the
+     example.scm file, this function is the return value of
+     display-graph. It closes over various bits and pieces of the
+     running process, such as the current-graph and canvas, allowing
+     us to modify and interact with the graph from the repl, which I
+     think is a very big plus over the previous software, which was
+     like watching a shipwreck, knowing you are powerless to stop it.
+
+** helper-functions.scm utility functions
+
+   Every one should have their own toolbox. This file is an attempt to
+   remove some of the redundancy from code and make it more
+   readable. It consists of some macros for manipulating variable
+   state, such as pushing and popping stacks, etc, and vector
+   operations.
+
+   The com316 students should take note of the lack of cars and cdrs
+   in this file (and the rest of the program in general). Even though
+   I represent points as lists of numbers like '(3 4), rather than
+   taking them apart and putting them back together again myself with
+   cars and cadrs and what-not, I use functions like map and fold to
+   do this for me.
+
+   This does two things: It makes the code much shorter, and it also
+   makes it more flexible. My vector operations work on vectors of any
+   size. The arithmetic functions also take any number of vectors. It
+   would be a good idea to learn these higher-order functions such as
+   map and fold and understand how to use them; they will save you a
+   lot of (cond ((null? lst) '()) ((tedious crap)))
+
+* Design Goals
+
+  First and foremost, this project is being made to address problems
+  with what we already have, the petite scheme-based grid search
+  provided by the CS department at Conn College. With that in mind, I
+  propose the following goals.
+
+** Persistent window
 
   We want to remove the annoyance of having to open and close windows
   when running our search programs. Therefore, the window should be
   persistent.
 
-  In the interest of keeping the application simple, rather than
-  having a complicated infrastructure to send closures to a running
-  graph application as previously proposed, we'll have the application
-  start from the repl, and keep the repl thread running. Then the user
-  can push their functions onto a stack of functions which the
-  application steps forward every n frames according to the speed
-  slider. This may require some continuation passing and the macros to
-  hide it.
+  Also, in the hope that development will be more interactive,
+  involving more frequent evaluating and experimentation, it should be
+  easy to run new search algorithms, straight from the repl, without
+  having to reload a slew of files like the grid program required.
 
-* GUI interface
+** GUI interface
+
   - There should be a slider to control the speed
-  - You should be able to place players with the mouse
-  - There should be pause/play buttons and a button to clear the screen
+  - There should be pause/play buttons
   - If it's not too much work: a rewind button
   - Some buttons to switch between graph layouts, perhaps a graph
     history as well.
@@ -36,12 +134,9 @@ this, I propose the following goals.
   A few keybinds would be useful, such as spacebar to start/stop the
   process, number keys to switch quickly between graphs. Perhaps a
   keybind to save/load a list of graphs. We should also display the
-  number of the current graph in the list of graphs. Aesthetically
-  speaking, I'd like this number to be drawn at the bottom of the
-  canvas area, but then we'd have to avoid overlap with the graph. We
-  could deal with this by adding more padding.
+  number of the current graph in the list of graphs.
 
-* Under the hood
+** Under the hood
   
   Rather than represent the grid as a 2D matrix, I want to move to
   representing the grid as a graph data structure, most likely an
@@ -64,15 +159,27 @@ this, I propose the following goals.
   and avoid using PLT specific functions outside of the actual
   graphical program. We want students to be able to develop however
   they like, using whatever implementation they like (the actual GUI
-  being an exception, obviously)
+  being an exception, obviously). As it stands, currently, the display
+  code is a little too closely tied to the graph manipulation code,
+  I'd like to strive for some cleaner separation between the two in
+  the future.
 
-  We want to keep the grid data structure immutable. That will allow
-  us to run multiple search functions at the same time and implement
-  races and competitions very easily. Each search function is
-  responsible for keeping a list of notable vertices, though we may
+  We don't want to let user search functions store values in the
+  graph. Rather, making them store these values somewhere else will
+  allow us to run multiple search functions at the same time and
+  implement races and competitions very easily. Each search function
+  is responsible for keeping a list of notable vertices, though we may
   provide some functions that make it easier.
 
   Another thing that I would like to provide are queues and stacks
   that display their contents in another window, updated real time so
   students can see what is going on.
+
+  I will also provide more helper functions, ones that make it easy
+  and convenient to poke and prod at variables. We should also provide
+  good documentation and tips not only for using the graph program,
+  but for using scheme in general. Some may find that the source has
+  too many comments; this is intentional, with the hope that it
+  appears friendlier to students who want to try and get their hands
+  dirty.
 

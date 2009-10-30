@@ -83,16 +83,16 @@
       (fold breadcrumbs #f trail)
       (send dc set-pen (player-pen))
       (send dc draw-rounded-rectangle 
-            (- (car cur) (/ (player-size) 2))
-            (- (cadr cur)(/ (player-size) 2))
+            (- (first cur) (/ (player-size) 2))
+            (- (second cur)(/ (player-size) 2))
             (player-size) (player-size))))
 
   (define (draw-goal dc layout goal)
     (let* ((pos (list-ref layout goal)))
       (send dc set-pen (goal-pen))
       (send dc draw-rounded-rectangle
-            (- (car pos) (/ (goal-size) 2))
-            (- (cadr pos)(/ (goal-size) 2))
+            (- (first pos) (/ (goal-size) 2))
+            (- (second pos)(/ (goal-size) 2))
             (goal-size) (goal-size))))
   
   (define (draw-graph dc vertices layout edge-points)
@@ -249,7 +249,7 @@
       
       (let* ((g (graph-structure (current-graph)))
              (search (player-logic p))
-             (now (car (player-trail p)))
+             (now (first (player-trail p)))
              (adj (lambda (v) (neighbors g v)))
              (visited? (lambda (v) (member v (player-trail p))))
 	     (goal? (lambda (v) (member v (graph-goals (current-graph)))))
@@ -294,7 +294,8 @@
 
 	 (else
 	  (printf "No cheating! There is no edge from ~A to ~A~%"
-		  now next)))))
+		  now next)
+	  (delete-player (current-graph) (player-name p))))))
     
     ;; Our gui elements
     (define win
