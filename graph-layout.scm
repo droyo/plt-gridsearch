@@ -1,8 +1,7 @@
 (module graph-layout scheme
   (require srfi/1 srfi/43 "helper-functions.scm")
   
-  ;;; For force-directed layout we layout the points randomly and then
-  ;;; iterate until we acheive a low-energy layout.
+  ;;; Layout the points randomly
   (define (rand-points n)
     (let ((p (list-tabulate n (lambda _ (list (random) (random))))))
       (if (unique? p) 

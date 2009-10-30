@@ -7,23 +7,13 @@
    redrawn. This is unacceptable, and can be fixed by doing the
    following optimizations.
 
-   - Storing edge positions: currently, every time the graph is
-     redrawn, we recompute the edges between vertices with an
-     algorithm that looks to have around an O(n^2) runtime. There is
-     no reason to do this more than once per graph. We can just store
-     the endpoints in the graph struct.
-
    - Scalar multiplication: I doubt this is taking too much time, but
      each time the graph is redrawn the base points are scaled to the
      current window size. This is only neccesary when the window is
      resized. We can store the scaled points somewhere and change them
-     when the window size changes.
-
-   - Don't redraw the whole graph: During the normal running of the
-     program, the only thing that needs to be re-drawn are the nodes
-     which were covered by a player piece. This may be the most
-     immediate course of action: redraw the node in step-player and
-     change draw to only redraw the graph when it is resized.
+     when the window size changes. I'm not convinced this is too big
+     of a problem. I've optimized some other things and the flickering
+     is under control now.
 
    Note this app does a lot of sleeping and is not very
    CPU-intensive. The only thing that is being called several times
@@ -33,8 +23,9 @@
 
 ** Aesthetics
 
-   One visual effect that I think is important is tracing a player's
-   trail as he moves through the graph. Other effects are nice, too.
+   Right now, goals are green, players are red, and nodes are black;
+   It would be desirable to assign every player a random new color, so
+   we can distinguish between them.
 
 ** Weights
 
@@ -51,7 +42,9 @@
 
    I honestly don't have an answer to this problem. I could use
    Djikstra's algorithm to give the distance between vertices, but
-   this would obviously give students the shortest path.
+   this would obviously give students the shortest path. The physical
+   distance between two nodes will depend on the graphical
+   representation of the graph.
 
    I hope the other merits of this system make up for this small
    sacrifice.
@@ -62,7 +55,31 @@
    players would be to pass another function that returns a list of
    other player positions, perhaps with their names.
 
-** LAYOUT
+** Layout
 
    The grid layout is acceptable for some graphs, but this application
    is really missing a general grid layout algorithm.
+
+** Documentation
+
+   This application is near feature complete. Once the things in this
+   TODO are taken care of, I'd like to focus more on documenting the
+   source code, because this app will be in the care of CS students,
+   it must be accessible! The main reason this program was created was
+   because the current grid search application we were using was
+   large, undocumented, and inaccessible. We don't want to repeat the
+   same mistake.
+
+*** Code quality issues
+
+    There are some inconsistencies in the code, such as:
+    - The arbitrary interchanging of "vertex" and "node"
+    - A little too much list trickery (look at get-edges)
+    - Sometimes arbitrary arguments: Some of the decisions to pass a
+      graph-info struct over the actual graph data structure are
+      pretty arbitrary, and make the interactions a little tangled.
+
+    I would like to add some cleaner separation between the UI code
+    and the rest of the program. But for now, it works, it is not too
+    complicated, and it does not pollute the user search programs like
+    the previous grid-search did.
