@@ -174,6 +174,9 @@
   (define (disconnect! graph v1 v2)
     (modify! graph v1 v2 #f))
 
+  (define new-graph-function
+    (make-parameter (lambda () (square-grid 3))))
+
   (provide create-graph graph-size square-grid random-graph
 	   vertices edges connect! disconnect! neighbors dfs-maze
-           kruskal-maze))
+           kruskal-maze new-graph-function))

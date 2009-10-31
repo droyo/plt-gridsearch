@@ -12,14 +12,12 @@
 ;; generation functions.
 (new-graph-function
  (lambda ()
-   (kruskal-maze (square-grid 8) .6)))
+   (kruskal-maze (square-grid 15) .6)))
 
 ;; Choose how big we want various elements to be drawn on the
 ;; display. Defaults are in graph-gui.scm
-(node-size 35)
+(node-size 25)
 (player-size 18)
-(goal-size 24)
-
 
 ;; Setup our graph and open our visualization window. This returns a
 ;; function that parses messages and changes the state of the
@@ -37,6 +35,11 @@
 ;; - A function that gets the adjacent vertices of a given vertex.
 ;; - A function that checks if a vertex is visited or not.
 ;; - A function that checks if a vertex is a goal.
+;; - A function that gives the coordinates of a vertex on the screen
+
+;; Note that the goal function works double-duty; when called with no
+;; arguments it returns a list of goals. This may or may not change in
+;; the future if it proves too confusing.
 
 ;; The graph software takes care of marking nodes visited, keeping a
 ;; visited list for each player rather than marking the graph, so that
@@ -47,7 +50,7 @@
 ;; return 'no-path
 
 ;; A reference random-search
-(define (random-search start adjacent visited? goal?)
+(define (random-search start adjacent visited? goal? coordinates)
   (let* ((adj (adjacent start))
 	 (new-adj (remove visited? adj)))
     (cond ((any goal? (adjacent start))
@@ -65,17 +68,22 @@
 ;; end of the list, or the goal, the player will be deleted.
 
 ;; A reference DFS search. We use recursion as our stack here.
-(define (depth-first-search start adjacent visited? goal?)
+(define (depth-first-search start adjacent visited? goal? coordinates)
   ;; Note: visited? only returns #t if we have physically been to 
   ;; a vertex. Because this dfs does not actually *move* the player,
   ;; we need our own way of keeping track of old nodes.
   (define old '())
   (define (mark v) (push! v old))
   (define (old? v) (member v old))
-
+  (define goal (find goal? (goal?)))
   (define (expand v) 
     (mark v)
-    (shuffle (remove old? (adjacent v))))
+    (sort (remove old? (adjacent v))
+          (lambda (v1 v2)
+            (< (dist-squared (coordinates v1) 
+                             (coordinates goal))
+               (dist-squared (coordinates v2) 
+                             (coordinates goal))))))
   
   (let dfs ((adj (expand start)))
     (cond ((null? adj) #f)

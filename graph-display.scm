@@ -17,40 +17,48 @@
   ;; Margin between graph and edge of canvas (graph number is drawn here)
   (define padding (make-parameter 15))
   (define node-size (make-parameter 
-                     30 (lambda (x) ; update padding
+                     30 (lambda (x);update padding when this is changed
 			  (padding (/ x 2)) x)))
 
-  ;; We want player and goal to be different sizes, so they don't block
-  ;; each other if they are on the same vertex
   (define player-size (make-parameter 20))
-  (define goal-size (make-parameter 18))
   
-  (define edge-pen 
-    (make-parameter (send the-pen-list find-or-create-pen 
-                          "BLUE" 2 'solid)))
-  (define node-pen 
-    (make-parameter (send the-pen-list find-or-create-pen 
-                          "BLACK" 1 'solid)))
-  (define goal-pen
-    (make-parameter (send the-pen-list find-or-create-pen
-                          "GREEN" 1 'solid)))
+  ;; http://docs.plt-scheme.org/gui/pen-list_.html
+  (define (pen color width)
+    (send the-pen-list find-or-create-pen
+	  color width 'solid))
+  
+  (define (brush color)
+    (send the-brush-list find-or-create-brush
+	  color 'solid))
 
+  (define edge-pen (make-parameter (pen "Blue" 2)))
+  (define node-pen (make-parameter (pen "Black" 1)))
+  (define goal-pen (make-parameter (pen "Green" 1)))
   ;; color for node backgrounds
-  (define background-brush
-    (make-parameter (send the-brush-list find-or-create-brush
-			  "SeaShell" 'solid)))
+  (define background-brush (make-parameter (brush "SeaShell")))
 
-  ;; The layout function may be changed to any function that takes a list 
-  ;; of vertices and a function to find adjacents and returns an equal-size 
-  ;; list of points between (0, 0) and (1, 1)
-  (define layout-function
-    (make-parameter grid-layout))
+  ;; True if we want player trails highlited
+  (define highlight-player-trails (make-parameter #t))
 
-  ;; The graph generation function takes no arguments and returns a graph 
-  ;; object as described in graph.scm
-  (define new-graph-function
-    (make-parameter (lambda ()
-		      (square-grid 3))))
+  ;;; Drawing functions
+  ;; draw-graph redraws the whole graph. only called on window refresh
+
+  ;; Return a random color pen
+  (define (random-pen width)
+    (pen (random-choose '("Red" "RoyalBlue" "SteelBlue" "Dark Olive Green"
+			  "DarkSeaGreen" "DarkKhaki" "Peru" "Sienna"
+			  "Chocolate" "Orchid"))
+	 width))
+
+  (define (draw-graph dc graph-struct)
+    (for-each (lambda (edge)
+                (apply draw-edge dc (cdr edge)))
+               (graph-edges graph-struct))
+    (for-each (lambda (vertex pos)
+                (apply draw-node dc
+		       (number->string vertex) pos))
+	      (vertices (graph-data graph-struct))
+	      (graph-points graph-struct)))
 
   ;; Currently we draw nodes as black outlined circles with their names
   ;; in the middle.
@@ -59,12 +67,10 @@
       (send dc draw-ellipse
 	    (- x (/ (node-size) 2))
 	    (- y (/ (node-size) 2))
-	    (node-size)
-	    (node-size))
+	    (node-size) (node-size))
       (send dc draw-text name
-	    ;; Assume a 8x4 font size. This doesn't work when name is
-	    ;; more than one character long.
-	    (- x 4)
+	    ;; The name isn't centered properly
+	    (- x (* 4 (remainder (string-length name) 6)))
 	    (- y 8)))
 
   (define (draw-edge dc from to [pen (edge-pen)])
@@ -75,148 +81,27 @@
 
   ;; Consider highlighting edges with player colors.
   ;; For now players/goals are rounded rectangles
-  (define (draw-player dc layout player)
-    (let* ((trail (map (lambda (x) (list-ref layout x))
+  (define (draw-player dc graph-struct player)
+    (let* ((trail (map (compose (lookup-positions graph-struct))
 		       (player-trail player)))
-	   (cur (first trail))
-	   (breadcrumbs
-	    (lambda (b a)
-	      (and a (draw-edge dc a b (player-pen player)))
-	      b)))
-      (fold breadcrumbs #f trail)
+	   (pos (first trail))
+	   (breadcrumbs (lambda (a b)
+			  (draw-edge dc a b
+				     (player-pen player))
+			  a)))
+      (when (highlight-player-trails)
+	    (fold breadcrumbs pos trail))
+
       (send dc set-pen (player-pen player))
-      (send dc set-brush (send the-brush-list find-or-create-brush
-			       (send (player-pen player) get-color)
-			       'solid))
+      (send dc set-brush (brush (send (player-pen player) get-color)))
+
       (send dc draw-rounded-rectangle 
-            (- (first cur) (/ (player-size) 2))
-            (- (second cur)(/ (player-size) 2))
+            (- (first pos) (/ (player-size) 2))
+            (- (second pos)(/ (player-size) 2))
             (player-size) (player-size))
+
       (send dc set-brush (background-brush))))
 
-  (define (draw-goal dc layout goal)
-    (let* ((pos (list-ref layout goal)))
-      (send dc set-pen (goal-pen))
-      (send dc draw-rounded-rectangle
-            (- (first pos) (/ (goal-size) 2))
-            (- (second pos)(/ (goal-size) 2))
-            (goal-size) (goal-size))))
-  
-  (define (draw-graph dc vertices layout edge-points)
-    (for-each (lambda (pos)
-                (apply draw-edge dc pos))
-              edge-points)
-    (for-each (lambda (vertex pos)
-                (apply draw-node dc
-		       (number->string vertex) pos))
-              vertices layout))
-
-  (define (random-pen)
-    (send the-pen-list find-or-create-pen
-	  (random-choose '("Red"
-			   "RoyalBlue"
-			   "SteelBlue"
-			   "Dark Olive Green"
-			   "DarkSeaGreen"
-			   "DarkKhaki"
-			   "Peru"
-			   "Sienna"
-			   "Chocolate"
-			   "Orchid"))
-	  2 'solid))
-  ;; A unique list of edges
-  (define (get-edges graph layout)
-    (let* ((pos (lambda (x) (list-ref layout x))))
-      ;; The following generates list of lines
-      ;; (((v1 v2) (x1 y1) (x2 y2))
-      ;;  ((v2 v1) (x2 y2) (x1 y1))
-      ;;  ((v3 v4) (x3 y3) (x4 y4)) ...)
-      ;; For all vertices and their neighbors. 
-      ;; It does not contain duplicates.
-      (map (lambda (line)
-             (let ((from (pos (first line)))
-                   (to (pos (second line))))
-               (list line from to)))
-           (edges graph))))
-
-  ;; Since we don't want players to pollute the graph, we need to
-  ;; provide storage for visited nodes for each player. Player's 
-  ;; current position will be at top of player-trail
-  (define-struct player
-    (name logic [trail #:mutable] [pen] [plan #:mutable #:auto])
-    #:auto-value #f)
-  
-  (define-struct graph 
-    (;; The actual graph data structure as in graph.scm
-     structure
-     ;; List of edge points so we don't recompute them each frame
-     [edges #:mutable]
-     ;; The list of points for each vertex. Our vertices are 
-     ;; given integer names, so we find corresponding points in 
-     ;; the layout using the vertex name as an index.
-     [layout]
-     ;; We associate a list of players and goals with each graph
-     [players #:mutable #:auto]
-     [goals #:mutable #:auto])
-    #:auto-value '())
-  
-  (define (create-graph-info)
-    (let* ((g ((new-graph-function)))
-           (l ((layout-function)
-	       (vertices g) (lambda (v)
-			      (neighbors g v))))
-           (e (get-edges g l)))
-      (make-graph g e l)))
-
-  ;;; Add/remove/manipulate players
-  (define (add-player graph-info name fun [init #f])
-    (let* ((start (or init (random-start (graph-structure graph-info))))
-           (new-player (make-player name fun (list start) (random-pen))))
-      (set-graph-players! graph-info (cons new-player 
-                                           (graph-players graph-info)))))
-  
-  (define (delete-player graph-info p)
-    (set-graph-players! graph-info
-			(delete p (graph-players graph-info))))
-  
-  ;; Graphs may have any number of goals.
-  (define (add-goal graph-info [init #f])
-    (let ((pos (or init (random-start (graph-structure graph-info)))))
-      (set-graph-goals! graph-info
-                        (lset-union = ;avoid duplicate goals
-                                    (list pos)
-                                    (graph-goals graph-info)))))
-  
-  (define (delete-goal graph-info vertex)
-    (set-graph-goals! graph-info
-                      (remove vertex (graph-goals graph-info))))
-
-  (define (add-edge graph-info from to)
-    (let ((pos (lambda (x) (list-ref (graph-layout graph-info) x))))
-      (set-graph-edges! graph-info
-                        (cons (list (list from to)
-                                    (pos from) (pos to))
-                              (graph-edges graph-info)))
-      (connect! (graph-structure graph-info) from to)))
-  
-  (define (remove-edge graph-info from to)
-    (let ((pos (lambda (x) (list-ref (graph-layout graph-info) x)))
-          (endpoints (list from to))
-          (swap-endpoints reverse))
-      (set-graph-edges! graph-info
-                        (remove (lambda (e)
-                                  (or (equal? (car e) endpoints)
-                                      (equal? (swap-endpoints (car e)) 
-                                              endpoints)))
-                                (graph-edges graph-info)))
-      (disconnect! (graph-structure graph-info) from to)))
-  
-  ;; Choose a random start. Note: we might want to make sure players
-  ;; don't start at the same place
-  (define (random-start graph)
-    (let ((vt (vertices graph)))
-      (list-ref vt (random (length vt)))))
-  
   ;;; Here is the main program. We allocate all the resources
   ;;; for our gui, display the window, run the main loop and return
   ;;; a closure that the user can use to interact with the graph
@@ -224,8 +109,10 @@
   (define (display-graph)
     (define pause 1)
     (define running? #f)
-    (define graph-list (list (create-graph-info)))
+    (define graph-list (list (create-graph-struct)))
     (define index 0)
+    (define window-width 400)
+    (define window-height 420)
 
     ;; We move along the graph list relatively with the function
     ;; move-graph, which closes over the variables index and
@@ -235,7 +122,8 @@
       (let ((new (+ index x)))
 	(cond
 	 ((>= new (length graph-list))
-	  (add! (create-graph-info) graph-list)
+	  (add! (create-graph-struct) graph-list)
+	  (check-scale-canvas #t)
 	  (inc! index))
 	 ((>= new 0)
 	  (inc! index x))
@@ -247,40 +135,37 @@
     (define (current-graph)   (list-ref graph-list index))
     
     ;; Jump to a specific graph
-    (define (jump-to graph-index)
-      (when (> (length graph-list) graph-index -1)
-        (set! index graph-index)
+    (define (jump-to-graph n)
+      (when (> (length graph-list) n -1)
+        (set! index n)
         (send canvas refresh)))
-    
-    ;; Moves the player by one graph node. The manner in which the
-    ;; player moves about the graph is not set in stone yet, so this
-    ;; area is subject to change.
-    (define (step-player p)
 
-      (define (move-to next)
-	(set-player-trail! p (cons next (player-trail p)))
-	(apply draw-node
-	       (send canvas get-dc)
-	       (number->string (second (player-trail p)))
-	       (scale-pt (list-ref (graph-layout (current-graph))
-				   (second (player-trail p)))))
-	(draw-player (send canvas get-dc)
-		     (map scale-pt (graph-layout (current-graph)))
-		     p))
-      
-      (let* ((g (graph-structure (current-graph)))
-             (search (player-logic p))
-             (now (first (player-trail p)))
-             (adj (lambda (v) (neighbors g v)))
-             (visited? (lambda (v) (member v (player-trail p))))
-	     (goal? (lambda (v) (member v (graph-goals (current-graph)))))
+    (define (get-adjacents v)
+      (neighbors (graph-data (current-graph)) v))
+
+    ;; When called with no arguments, return a list of goals.  when
+    ;; given arguments, returns #t if all arguments are goals
+    (define (check-goal . args)
+      (if (null? args)
+	  (graph-goals (current-graph))
+	  (every (lambda (v)
+		   (member v (graph-goals (current-graph))))
+		 args)))
+    
+    ;; Main step function that drives the player search.
+    (define (step-player p)
+      (let* ((now (first (player-trail p)))
+             (visited? (lambda (v)
+			 (member v (player-trail p))))
              (next (or (player-plan p)
-		       (search now adj visited? goal?))))
+		       ((player-search p) now get-adjacents visited? check-goal
+			(lookup-positions (current-graph))))))
 	;; If the search function returns a list, we follow the list,
-	;; if it returns a vertice, we follow that and call it again
-	;; and again until it returns 'finished or 'no-path
+	;; if it returns a single vertex, we follow that and call it
+	;; again and again until it returns 'finished or 'no-path, or
+	;; reaches the goal
 	(cond
-	 ((goal? now)
+	 ((check-goal now)
 	  (printf "~A Found goal in ~A steps~%"
 		  (player-name p)
 		  (length (player-trail p)))
@@ -291,79 +176,99 @@
 	 ((null? (player-plan p))
 	  (printf "~A Reached end of given path. ~%"
 		  (player-name p))
+	  ;; perhaps we should restart, here, calling the search
+	  ;; function again?
 	  (toggle-start start/stop #t)
 	  (delete-player (current-graph) (player-name p))
 	  (send canvas refresh))
 	 
 	 ((and (player-plan p)
-	       (member (first (player-plan p)) (cons now (adj now))))
-	  (move-to (first (player-plan p)))
-	  (set-player-plan! p (cdr (player-plan p))))
+	       (member (first (player-plan p))
+		       (cons now (get-adjacents now))))
+	  (draw-move-player p (pop-player-plan! p)))
 
 	 ((list? next)
 	  (printf "Received path ~A from ~A~%" next
 		  (player-name p))
 	  (set-player-plan! p next))
 	 ;; Make sure player's aren't cheating
-	 ((member next (adj now))
-	  (move-to next))
+	 ((member next (get-adjacents now))
+	  (draw-move-player p next))
 	 ;; Return #f or 'no-path to give up
 	 ((or (not next) (eq? next 'no-path))
 	  (printf "~A Failed to find path to goal~%"
 		  (player-name p))
-	  (delete-player (current-graph) (player-name p)))
+	  (delete-player (current-graph) p))
 
 	 (else
 	  (printf "No cheating! There is no edge from ~A to ~A~%"
 		  now next)
-	  (delete-player (current-graph) (player-name p))))))
+	  (delete-player (current-graph) p)))))
     
     ;; Our gui elements
     (define win
       (new frame%
 	   [label "Graph Search"]
-	   [min-width 640]
-	   [min-height 480]))
+	   [min-width window-width]
+	   [min-height window-height]))
 
     (define panel
       (new vertical-panel%
 	   [parent win]
 	   [alignment '(center top)]))
 
-    ;; Currently the draw function redraws the entire graph, giving a
-    ;; considerable flickering effect. An improvement would be only
-    ;; redrawing the whole graph when the window is resized, instead
-    ;; redrawing only the nodes that were tread on by players. This
-    ;; flickering gets really bad as the graph gets larger.
     (define (scale-pt p)
-      (v+ (v* (list (- (send canvas get-width)
-		       (* 2 (padding)))
-		    (- (send canvas get-height)
-		       (* 2 (padding))))
+      (v+ (v* (list (- window-width (* 2 (padding)))
+		    (- window-height (* 2 (padding))))
 	      p)
 	  (padding)))
-
+    
+    ;; Re-scale points when window is resized
+    (define (check-scale-canvas [force #f])
+      (let* ((width (send canvas get-width))
+	     (height (send canvas get-height)))
+	(unless (and (not force)
+		     (= window-width width)
+		     (= window-height height))
+		(set! window-width width)
+		(set! window-height height)
+		(for-each
+		 (lambda (g)
+		   (set-graph-points! g (map scale-pt (graph-template g)))
+		   (compute-edge-positions! g))
+		 graph-list))))
+    
     (define (draw canvas dc)
-      (let* ((vert (vertices (graph-structure (current-graph))))
-             (scale (lambda (pts) (map scale-pt pts)))
-             (layout (scale (graph-layout (current-graph))))
-             (edges (map (compose scale cdr)
-                         (graph-edges (current-graph)))))
+      (let ((g (current-graph)))
+	(check-scale-canvas)
 	(send dc set-brush (background-brush))
-        (draw-graph dc vert layout edges)
-        (for-each (lambda (p)
-                    (draw-player dc layout p))
-                  (graph-players (current-graph)))
-        (for-each (lambda (g)
-		    (let ((pt (list-ref layout g)))
-		      (draw-node dc
-				 (string-append "G" (number->string g))
-				 (first pt) (second pt)
+	(draw-graph dc g)
+
+	(for-each (lambda (p)
+		    (draw-player dc g p))
+		  (graph-players g))
+
+	(for-each (lambda (goal)
+		    (let ((pt (list-ref (graph-points g) goal)))
+		      (draw-node dc "G" (first pt) (second pt)
 				 (goal-pen))))
-                  (graph-goals (current-graph)))
-        ;; Draw graph number in lower left-hand corner
-        (send dc draw-text (number->string index)
-              4 (- (send canvas get-height) 20))))
+		  (graph-goals g))
+      ;; Draw graph number in lower left-hand corner
+	(send dc draw-text (number->string index)
+	      4 (- (send canvas get-height) 20))))
+
+    (define (draw-move-player p next)
+      ;; Redraw the node the player previously stepped on.
+      (redraw-vertex (car (player-trail p)))
+      (push-player-trail! p next)
+      (draw-player (send canvas get-dc) (current-graph) p))
+
+    (define (redraw-vertex v)
+      (apply draw-node
+	     (send canvas get-dc)
+	     (number->string v)
+	     (list-ref (graph-points (current-graph))
+		       v)))
 
     (define canvas
       (new canvas%
@@ -448,54 +353,50 @@
     ;; the repl. I may just want to use 'eval' here, but it might be
     ;; better to keep things explicit.
     (define (parse-cmd cmd . args)
-      (let ((G (graph-structure (current-graph))))
-	(case cmd
-	  ((jump)
-           (apply jump-to args)
-           (send prev show (> index 0)))
-	  ;; Create a new graph and switch to it
-	  ((new-graph)
-	   (jump-to (- (length graph-list) 1))
-	   (move-next-graph)
-           (send prev show (> index 0))
-           (printf "Created graph ~A~%" index))
-	  ;; Modify the current graph
-	  ((connect)
-           (apply add-edge (current-graph) args))
-	  ((disconnect)
-           (apply remove-edge (current-graph) args))
-	  ;; Add/remove elements in the graph
-          ((add-player)
-           (apply add-player (current-graph) args))
-          ((add-goal)
-           (apply add-goal (current-graph) args))
-          ((delete-player)
-	   (map (lambda (name)
-		  (let ((player (find (lambda (p)
-					(string=? (player-name p)
-						  name))
-				      (graph-players (current-graph)))))
-		    (when player
-			  (apply delete-player (current-graph) player))))))
-          ((delete-goal)
-           (apply delete-goal (current-graph) args))
-	  ((toggle-start)
-	   (toggle-start start/stop #t))
-	  ;; Quit the session
-          ((quit)
-           (kill-thread main-thread)
-	   (send win close))
-	  (else
-	   (printf "Unknown command ~A~%" cmd))))
+      (case cmd
+	((jump)
+	 (apply jump-to-graph args)
+	 (send prev show (> index 0)))
+	;; Create a new graph and switch to it
+	((new-graph)
+	 (jump-to-graph (- (length graph-list) 1))
+	 (next-graph next #t)
+	 (printf "Created graph ~A~%" index))
+	;; Modify the current graph
+	((connect)
+	 (apply add-edge (current-graph) args))
+	((disconnect)
+	 (apply remove-edge (current-graph) args))
+	;; Add/remove elements in the graph
+	((add-player)
+	 (apply add-player (current-graph) (random-pen 2) args))
+	((add-goal)
+	 (apply add-goal (current-graph) args))
+	;; Delete players by name, so some parsing is required
+	((delete-player)
+	 (map (lambda (name)
+		(let ((player (find (lambda (p)
+				      (string=? (player-name p)
+						name))
+				    (graph-players (current-graph)))))
+		  (when player
+			(apply delete-player (current-graph) player))))))
+	((delete-goal)
+	 (apply delete-goal (current-graph) args))
+	((toggle-start)
+	 (toggle-start start/stop #t))
+	;; Quit the session
+	((quit)
+	 (kill-thread main-thread))
+	(else
+	 (printf "Unknown command ~A~%" cmd)))
       (send canvas refresh))
     
     ;; Turn on anti-aliasing
     (send (send canvas get-dc) set-smoothing 'aligned)
     (send prev show #f)
     (send win show #t)
-    (sleep/yield 1);I don't know what this is for
     parse-cmd)
 
-  (provide display-graph layout-function new-graph-function
-	   player-pen node-pen goal-pen edge-pen
-	   node-size player-size goal-size background-brush))
+  (provide display-graph node-pen goal-pen edge-pen
+	   node-size player-size background-brush))
