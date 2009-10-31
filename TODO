@@ -69,3 +69,8 @@
     general. To its defense, the program does more now than it did
     before, but there is much redundancy that can be removed.
 
+    I would like to unify graph-create.scm and graph-layout.scm,
+    namely the parts of graph-layout.scm dealing with putting graphs
+    in structs. I should think a little harder about what I need to
+    store about a graph and create that in graph-create.scm, rather
+    than dealing with the adjacency matrices.

@@ -7,8 +7,8 @@
   (require srfi/1 srfi/43 "helper-functions.scm")
 
   ;; Graph creation
-  ;; A graph with n vertices
-  (define (create-graph n connected?)
+  ;; A graph with n vertices, all or none connected.
+  (define (create-graph n weights)
     (list->vector
      (map (lambda (v)
 	    (list->vector (list-tabulate
