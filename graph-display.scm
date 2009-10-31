@@ -293,7 +293,7 @@
 
     ;; Our main loop just steps the players through the graph
     (define (main)
-      (sleep pause)
+      (sleep/yield pause)
       (for-each step-player (graph-players (current-graph)))
       (main))
     ;; We run main in a separate thread, suspended and resumed by the
