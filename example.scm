@@ -14,6 +14,7 @@
  (lambda ()
    (kruskal-maze (square-grid 15) .3)))
 
+
 ;; Choose how big we want various elements to be drawn on the
 ;; display. Defaults are in graph-gui.scm
 (node-size 25)

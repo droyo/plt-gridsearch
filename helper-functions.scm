@@ -135,4 +135,5 @@
 
   (provide v/ v* v+ v- norm unit-vector dist-squared dist
 	   unique? square sum shuffle flip! add!
+	   inc! push! pop!))
 	   inc! push! pop! random-choose))

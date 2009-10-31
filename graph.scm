@@ -52,8 +52,10 @@
     (let* ((old '())
 	   (visited? (lambda (v) (member v old)))
 	   (expand (lambda (v)
-		     (push! v old)
 		     (shuffle (neighbors graph v))))
+	   (mark-as-visited (lambda (v)
+			      (printf "(push! ~A ~A)~%" v old)
+			      (push! v old)))
 	   (start (random (graph-size graph))))
 
       (let dfs ((start start)
@@ -73,6 +75,7 @@
 	    (dfs start new))
 
 	   (else
+	    (mark-as-visited start)
 	    (dfs (car new) (expand (car new)))
 	    (dfs start (cdr new))))))
       graph))
