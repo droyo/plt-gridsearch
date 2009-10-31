@@ -12,7 +12,7 @@ A graph application for Drscheme
   fall out of sync with the source code, so the best reference is the
   code itself.
 
-** graph.scm - The graph data structure and co.
+** graph-create.scm - The graph data structure and co.
 
    This file contains code for the actual data structure we use to
    represent our graph, which is an NxN adjacency matrix, where N is
@@ -38,7 +38,20 @@ A graph application for Drscheme
    a way to get their edges, and return a list of points on the unit
    plane -- points whose X and Y values are between 0 and 1. This
    allows us to easily deal with changing window sizes with a simple
-   multiplication. 
+   multiplication.
+
+   This file also contains the container struct for graphs, since we
+   want to associate more information with our graphs than the
+   adjacency matrix. We need somewhere to put the positions of the
+   edges and vertices made by the layout functions, as well as storing
+   other information like the location of goals and players.
+
+** graph-draw.scm - Graphics-specific stuff
+
+   Here is where the individual elements of the graph are drawn on the
+   display canvas. Separate functions for nodes, players, and edges
+   can be found here. If you don't like the way something looks, you
+   can edit this file to change it.
 
 ** graph-display.scm - where the magic happens
 

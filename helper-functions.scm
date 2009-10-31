@@ -133,7 +133,12 @@
   (define dist
     (compose sqrt dist-squared))
 
+  ;; Handy debugging function
+  (define (echo . val)
+    (for-each (lambda (v) (printf "~A~%" v)) val)
+    (apply values val))
+
   (provide v/ v* v+ v- norm unit-vector dist-squared dist
 	   unique? square sum shuffle flip! add!
-	   inc! push! pop!))
-	   inc! push! pop! random-choose))
+	   echo inc! push! pop! random-choose))
+

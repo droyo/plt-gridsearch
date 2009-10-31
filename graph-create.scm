@@ -1,9 +1,9 @@
-;;;; Graph data structure, w/ functions to generate graphs. We use a
-;;;; simple WxH adjacency matrix, where rows and columns represent
-;;;; vertexes, and their intersections are true if there is an edge
-;;;; between them. Note that this would be trivial to extend to
-;;;; weighted edges by providing a number weight rather than #t
-(module graph scheme
+;;;; Graph data structure, w/ functions to generate various graphs. We
+;;;; use a simple WxH adjacency matrix, where rows and columns
+;;;; represent vertexes, and their intersections are true if there is
+;;;; an edge between them. Note that this would be trivial to extend
+;;;; to weighted edges by providing a number weight rather than #t
+(module graph-create scheme
   (require srfi/1 srfi/43 "helper-functions.scm")
 
   ;; Graph creation
@@ -46,40 +46,6 @@
       (when (positive? (remainder (+ i 1) n))
 	    (connect! g i (+ i 1)))))
 
-  ;; Maze generation using depth-first-search. It currently
-  ;; has some flaw in it.
-  (define (dfs-maze graph)
-    (let* ((old '())
-	   (visited? (lambda (v) (member v old)))
-	   (expand (lambda (v)
-		     (shuffle (neighbors graph v))))
-	   (mark-as-visited (lambda (v)
-			      (printf "(push! ~A ~A)~%" v old)
-			      (push! v old)))
-	   (start (random (graph-size graph))))
-
-      (let dfs ((start start)
-		(adj (expand start)))
-	(let ((new (remove visited? adj)))
-	  (cond
-	   ;; When we hit a dead end, do nothing and pass execution
-	   ;; back up the stack
-	   ((null? new))
-	   ;; The recursion has made a path to some adjacent nodes, so
-	   ;; we can remove this extra path to them. Adding a
-	   ;; probability here may make the graph more interesting.
-	   ((any visited? adj)
-	    (for-each (lambda (v)
-			(disconnect! graph start v))
-		      (filter visited? adj))
-	    (dfs start new))
-
-	   (else
-	    (mark-as-visited start)
-	    (dfs (car new) (expand (car new)))
-	    (dfs start (cdr new))))))
-      graph))
-
   ;; Maze generation using Kruskal's algorithm. Change the shuffle 
   ;; to change the twistiness of the maze.
   (define (kruskal-maze graph loop-probability)
@@ -114,10 +80,6 @@
             (map list (vertices graph))
             (shuffle possible-edges))
       graph))
-  
-  (define (echo . val)
-    (for-each (lambda (v) (printf "~A~%" v)) val)
-    (apply values val))
   
   ;;; Graph accessors. Use these rather than vector accessors, in case
   ;;; we want to change our data-structure in the future.
@@ -177,9 +139,5 @@
   (define (disconnect! graph v1 v2)
     (modify! graph v1 v2 #f))
 
-  (define new-graph-function
-    (make-parameter (lambda () (square-grid 3))))
-
   (provide create-graph graph-size square-grid random-graph
-	   vertices edges connect! disconnect! neighbors dfs-maze
-           kruskal-maze new-graph-function))
+	   vertices edges connect! disconnect! neighbors kruskal-maze))
