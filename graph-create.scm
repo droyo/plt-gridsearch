@@ -14,7 +14,7 @@
 	    (list->vector (list-tabulate
 			   n (lambda (x)
 			       (and (not (= x v))
-				    connected?)))))
+				    weights)))))
 	  (list-tabulate n values))))
 
   ;; Randomly-connected graph
@@ -69,13 +69,15 @@
                 (cond 
                   ((and to from
                         (not (equal? to from)))
-                   ;; The edge joins two trees, add it to the graph
+                   ;; The edge joins two trees, add it to the graph.
+		   ;; this is a very inefficient operation and needs
+		   ;; to be replaced in the future
                    (apply connect! graph edge)
                    (cons (append to from)
-                               (remove (lambda (tree)
-                                         (or (equal? tree to)
-                                             (equal? tree from)))
-                                       forest)))
+			 (remove (lambda (tree)
+				   (or (equal? tree to)
+				       (equal? tree from)))
+				 forest)))
                   (else forest))))
             (map list (vertices graph))
             (shuffle possible-edges))

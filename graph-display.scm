@@ -3,47 +3,22 @@
 ;;;; a closure that the user can use to interact with the graph
 ;;;; window
 (module graph-display scheme/gui
-  (require srfi/1
+  (require srfi/1 srfi/11
 	   "graph-create.scm"
 	   "graph-layout.scm"
 	   "graph-draw.scm"
 	   "helper-functions.scm")
 
-  (define (display-graph)
-    (define pause 1)
+  (define (display-graph [width 300] [height 320])
+    (define pause 0)
     (define running? #f)
-    (define graph-list (list (create-graph-struct)))
-    (define index 0)
-    (define window-width 400)
-    (define window-height 420)
+    (define-values (next-graph prev-graph current-graph)
+      (new-graph-switcher))
 
-    ;; We move along the graph list relatively with the function
-    ;; move-graph, which closes over the variables index and
-    ;; graph-list. It adds new graphs when moving beyond the length of
-    ;; our graph list.
-    (define (move-graph x)
-      (let ((new (+ index x)))
-	(cond
-	 ((>= new (length graph-list))
-	  (add! (create-graph-struct) graph-list)
-	  (check-scale-canvas #t)
-	  (inc! index))
-	 ((>= new 0)
-	  (inc! index x))
-         (else index))))
-
-    ;; Some shortcuts to make things more readable
-    (define (move-next-graph) (move-graph +1))
-    (define (move-prev-graph) (move-graph -1))
-    (define (current-graph)   (list-ref graph-list index))
+    (define-values (win canvas start/stop slider prev next)
+      (new-window width height))
     
-    ;; Jump to a specific graph
-    (define (jump-to-graph n)
-      (when (> (length graph-list) n -1)
-        (set! index n)
-        (send canvas refresh)))
-
-    (define (get-adjacents v)
+    (define (adjacent v)
       (neighbors (graph-data (current-graph)) v))
 
     ;; When called with no arguments, return a list of goals.  when
@@ -108,18 +83,6 @@
 		  now next)
 	  (delete-player (current-graph) p)))))
     
-    ;; Our gui elements
-    (define win
-      (new frame%
-	   [label "Graph Search"]
-	   [min-width window-width]
-	   [min-height window-height]))
-
-    (define panel
-      (new vertical-panel%
-	   [parent win]
-	   [alignment '(center top)]))
-
     (define (scale-pt p)
       (v+ (v* (list (- window-width (* 2 (padding)))
 		    (- window-height (* 2 (padding))))
@@ -173,32 +136,12 @@
 	     (list-ref (graph-points (current-graph))
 		       v)))
 
-    (define canvas
-      (new canvas%
-	   [parent panel]
-	   [style '(border)]
-	   [stretchable-width #t]
-	   [stretchable-height #t]
-	   [paint-callback draw]))
-
-    (define bar
-      (new horizontal-panel%
-	   [parent panel]
-	   [alignment '(center bottom)]
-	   [stretchable-height #f]))
-
-    ;; Our buttons and slider
-    (define (make-button name call)
-      (new button%
-	   [parent bar]
-	   [label name]
-	   [callback call]))
-
     ;; Our main loop just steps the players through the graph
     (define (main)
       (sleep/yield pause)
       (for-each step-player (graph-players (current-graph)))
       (main))
+
     ;; We run main in a separate thread, suspended and resumed by the
     ;; start button, so we can still play around in the repl.
     (define main-thread
@@ -213,21 +156,8 @@
           (begin (send button set-label "Start")
                  (thread-suspend main-thread))))
     
-    (define start/stop
-      (make-button "Start" toggle-start))
-  
     (define (update-pause button event)
       (set! pause (/ (send button get-value) 50)))
-    ;; Our slider controls length of pause between steps: higher is
-    ;; slower.
-    (define slider
-      (new slider%
-	   [label ""]
-	   [parent bar]
-	   [min-value 0]
-	   [max-value 100]
-           [init-value 50]
-	   [callback update-pause]))
 
     ;; Our page buttons
     (define (prev-graph button event)
@@ -239,8 +169,6 @@
       (send button show (> index 0))
       (send canvas refresh))
     
-    (define prev (make-button "<" prev-graph))
-
     (define (next-graph button event)
       (when running?
         (toggle-start start/stop #f))
@@ -250,55 +178,12 @@
       (send prev show (> index 0))
       (send canvas refresh))
 
-    (define next (make-button ">" next-graph))
-    
-    ;; A closure that the user may use to control the window through
-    ;; the repl. I may just want to use 'eval' here, but it might be
-    ;; better to keep things explicit.
-    (define (parse-cmd cmd . args)
-      (case cmd
-	((jump)
-	 (apply jump-to-graph args)
-	 (send prev show (> index 0)))
-	;; Create a new graph and switch to it
-	((new-graph)
-	 (jump-to-graph (- (length graph-list) 1))
-	 (next-graph next #t)
-	 (printf "Created graph ~A~%" index))
-	;; Modify the current graph
-	((connect)
-	 (apply add-edge (current-graph) args))
-	((disconnect)
-	 (apply remove-edge (current-graph) args))
-	;; Add/remove elements in the graph
-	((add-player)
-	 (apply add-player (current-graph) (random-pen 2) args))
-	((add-goal)
-	 (apply add-goal (current-graph) args))
-	;; Delete players by name, so some parsing is required
-	((delete-player)
-	 (map (lambda (name)
-		(let ((player (find (lambda (p)
-				      (string=? (player-name p)
-						name))
-				    (graph-players (current-graph)))))
-		  (when player
-			(apply delete-player (current-graph) player))))))
-	((delete-goal)
-	 (apply delete-goal (current-graph) args))
-	((toggle-start)
-	 (toggle-start start/stop #t))
-	;; Quit the session
-	((quit)
-	 (kill-thread main-thread))
-	(else
-	 (printf "Unknown command ~A~%" cmd)))
-      (send canvas refresh))
-    
     ;; Turn on anti-aliasing
     (send (send canvas get-dc) set-smoothing 'aligned)
     (send prev show #f)
     (send win show #t)
-    parse-cmd)
+    ;; return a function that evaluates code in the internal
+    ;; environment
+    eval)
 
   (provide display-graph))

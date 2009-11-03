@@ -29,6 +29,24 @@
 	   (struct (make-graph data points points)))
       (recompute-edge-positions struct)
       struct))
+
+  (define (new-graph-switcher)
+    (let ((index 0)
+	  (graph-list '())
+	  (step (lambda (x)
+		  (cond
+		   ((>= (+ index x) (length graph-list))
+		    (add! (create-graph-struct) graph-list)
+		    (inc! index))
+		   ((>= (+ index x) 0)
+		    (inc! index x))
+		   (else index)))))
+      (values (lambda ()
+		(step +1))
+	      (lambda ()
+		(step -1))
+	      (lambda ()
+		(list-ref graph-list index)))))
   
   ;; Since we don't want players to pollute the graph, we need to
   ;; provide storage for visited nodes for each player. The player's
@@ -165,7 +183,8 @@
   (define layout-function
     (make-parameter grid-layout))
 
-  (provide layout-function
+  (provide new-graph-switcher
+	   layout-function
 	   new-graph-function
 	   random-layout
 	   grid-layout
