@@ -1,8 +1,12 @@
 #lang scheme
 
 ;; Example usage of our graph program
-(require srfi/1 "graph.scm" "graph-layout.scm" 
-         "graph-display.scm" "helper-functions.scm")
+(require srfi/1
+	 "graph-create.scm"
+	 "graph-layout.scm"
+	 "graph-draw.scm"
+         "graph-display.scm"
+	 "helper-functions.scm")
 
 ;; Choose our layout function. Current possible choices are:
 ;; grid-layout, random-layout
@@ -97,7 +101,7 @@
 ;; file helper-functions.scm provides the pop! and add! macros, which,
 ;; together with 'first' (or car) will provide you with queue
 ;; operations. Here is an example.
-(printf "Queue demonstration~%")
+(printf "==Queue demonstration==~%")
 (let loop ((q '(a b c 1 2 3)))
   (unless (eq? (first q) 3)
     ;; Off the front, onto the back

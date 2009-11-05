@@ -1,5 +1,21 @@
 * Things that need to be done
+** Optimization
 
+   I have made a point of putting code simplicity and readability
+   before efficiency, and I have tried to follow the guidelines about
+   premature optimization... but this program chokes on graphs with
+   more than ~150 vertices. The drawing code in particular is quite
+   slow. Things are being done pretty inefficiently all over the
+   program, but I will be doing some profiling to see where I can make
+   the biggest improvements.
+
+   Though our adjacency matrix gives us O(1) edge lookup time, it also
+   takes up O(n^2) space. Although the computers in the lab should be
+   capable of holding a 1000x1000 size vector (and graphs of 1000
+   vertices may be beyond the scope of this program), we may want to
+   use both adjacency matrices and adjacency lists, depending on the
+   type of graph being created.
+   
 ** Aesthetics
 
    I'd like to clean up the drawing code and organize it so one can
@@ -19,8 +35,8 @@
    because we are using abstract, mathematical graphs with an infinite
    number of visual representations, this is no longer applicable.
 
-   One solution would be to provide the user with a function that
-   returns the coordinates of a vertex.
+   One solution, which I use now, would be to provide the user with a
+   function that returns the coordinates of a vertex.
    
 ** Player-player interaction
 
@@ -32,13 +48,13 @@
 
    The grid layout is acceptable for some graphs, but this application
    is really missing a general grid layout algorithm.
-
+   
 ** Documentation
 
    This application is near feature complete. Once the things in this
    TODO are taken care of, I'd like to focus more on documenting the
-   source code, because this app will be in the care of CS students,
-   it must be accessible! The main reason this program was created was
+   source code. Since this app will be in the care of CS students, it
+   must be accessible! The main reason this program was created was
    because the current grid search application we were using was
    large, undocumented, and inaccessible. We don't want to repeat the
    same mistake.
@@ -48,14 +64,8 @@
 
 *** Code quality issues
 
-    There are some inconsistencies in the code, such as:
-    - The arbitrary interchanging of "vertex" and "node"
+    I have been refactoring the code quite a bit, but I'm still not
+    satisfied with it. The source code has gotten too long in
+    general. To its defense, the program does more now than it did
+    before, but there is much redundancy that can be removed.
 
-    - Sometimes ambiguous arguments: Some of the decisions to pass a
-      graph-info struct over the actual graph data structure are
-      pretty arbitrary, and make the interactions a little tangled.
-
-    I would like to add some cleaner separation between the UI code
-    and the rest of the program. But for now, it works, it is not too
-    complicated, and it does not pollute the user search programs like
-    the previous grid-search did.

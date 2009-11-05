@@ -1,7 +1,12 @@
 (module graph-layout scheme
-  (require srfi/1 srfi/43 "helper-functions.scm" "graph.scm")
+  (require srfi/1 srfi/43
+	    "graph-create.scm"
+	    "helper-functions.scm")
 
-    ;;; Our graph and player data structures: While the adjacency matrix
+  (define new-graph-function
+    (make-parameter (lambda () (square-grid 3))))
+
+  ;;; Our graph and player data structures: While the adjacency matrix
   ;;; in graph.scm is fine for checking connections between vertices,
   ;;; we need more information, such as the position of vertices on
   ;;; the screen, and objects on the vertices.
@@ -22,7 +27,7 @@
 			   (lambda (v)
 			     (neighbors data v))))
 	   (struct (make-graph data points points)))
-      (compute-edge-positions! struct)
+      (recompute-edge-positions struct)
       struct))
   
   ;; Since we don't want players to pollute the graph, we need to
@@ -92,7 +97,7 @@
 			(list (list from to)
 			      (pos from) (pos to)))
       (connect! (graph-data graph-struct) from to)
-      (compute-edge-positions! graph-struct)))
+      (recompute-edge-positions graph-struct)))
   
   (define (remove-edge graph-struct from to)
     (let ((pos (lookup-positions graph-struct))
@@ -107,7 +112,7 @@
       (disconnect! (graph-data graph-struct) from to)))
   
   ;; A unique list of edges
-  (define (compute-edge-positions! graph-struct)
+  (define (recompute-edge-positions graph-struct)
     (let* ((pos (lookup-positions graph-struct)))
       ;; The following generates list of lines
       ;; (((v1 v2) (x1 y1) (x2 y2))
@@ -135,9 +140,11 @@
           p
           (rand-points n))))
 
-  ;; All of our layout functions use closures passed in as arguments to
-  ;; manipulate graphs. This way, they will work for any graph
-  ;; representation given the proper accessor function.
+  ;; All of our layout functions use closures passed in as arguments
+  ;; to manipulate graphs. This way, they will work for any graph
+  ;; representation given the proper accessor function. Note: it's
+  ;; kind of a useless separation :\. Maybe things will be simpler
+  ;; without it?
   (define (random-layout nodes get-neighbors)
     (rand-points (length nodes)))
   
@@ -158,12 +165,35 @@
   (define layout-function
     (make-parameter grid-layout))
 
-  (provide layout-function random-layout grid-layout
-	   create-graph-struct push-player-plan! pop-player-plan!
-	   lookup-positions add-player delete-player
-	   add-edge remove-edge compute-edge-positions!
-	   random-start graph-edges graph-data graph-points
-	   player-trail player-plan player-name player-pen
-	   graph-goals player-search
-	   set-player-plan! set-graph-points! graph-template
-	   graph-players push-player-trail! add-goal delete-goal))
+  (provide layout-function
+	   new-graph-function
+	   random-layout
+	   grid-layout
+
+	   create-graph-struct
+	   graph-goals
+	   graph-edges
+	   graph-data
+	   graph-points
+	   graph-template
+	   graph-players
+	   set-graph-points!
+	   add-edge
+	   remove-edge
+	   add-goal
+	   delete-goal
+	   recompute-edge-positions
+	   random-start
+	   lookup-positions
+
+	   add-player
+	   delete-player
+	   player-trail
+	   player-plan
+	   player-name
+	   player-pen
+	   player-search
+	   push-player-plan!
+	   pop-player-plan!
+	   push-player-trail!
+	   set-player-plan!))
