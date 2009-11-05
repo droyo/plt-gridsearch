@@ -8,6 +8,9 @@
   (define (sum ls)
     (apply + ls))
 
+  (define round-up (compose inexact->exact ceiling))
+  (define round-down (compose inexact->exact floor))
+
   ;; #t If lst has no duplicate numbers
   (define (unique? lst)
     (= (length lst)
@@ -91,6 +94,8 @@
 	      var))
       ((_ var) (inc! var 1))))
 
+  (define make-point list)
+
   ;; Create a function that takes any number of vector or scalar
   ;; arguments and combines them to form a new vector
   (define (vector-combination c init)
@@ -138,7 +143,7 @@
     (for-each (lambda (v) (printf "~A~%" v)) val)
     (apply values val))
 
-  (provide v/ v* v+ v- norm unit-vector dist-squared dist
-	   unique? square sum shuffle flip! add!
+  (provide v/ v* v+ v- norm unit-vector dist-squared dist make-point
+	   unique? square sum shuffle flip! add! round-up round-down
 	   echo inc! push! pop! random-choose))
 
